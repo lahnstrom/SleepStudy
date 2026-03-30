@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import path from 'node:path'
 
 function required(name: string): string {
   const val = process.env[name]
@@ -13,4 +14,5 @@ export const config = {
   port: parseInt(process.env.PORT ?? '3000', 10),
   isProd: process.env.NODE_ENV === 'production',
   sessionCookieName: 'naps.sid',
+  imageDir: process.env.IMAGE_DIR || path.join(process.cwd(), 'images'),
 }

@@ -13,6 +13,7 @@ import participantRoutes from './routes/participants.js'
 import sessionRoutes from './routes/sessions.js'
 import trialRoutes from './routes/trials.js'
 import assignmentRoutes from './routes/assignments.js'
+import imageRoutes from './routes/images.js'
 import './types.js'
 
 const PgStore = connectPgSimple(session)
@@ -51,6 +52,7 @@ app.use('/api/labs', participantRoutes)
 app.use('/api/sessions', sessionRoutes)
 app.use('/api/sessions', trialRoutes)
 app.use('/api/participants', assignmentRoutes)
+app.use('/api/images', imageRoutes)
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' })

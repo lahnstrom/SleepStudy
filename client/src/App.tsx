@@ -10,6 +10,7 @@ import ParticipantListPage from './pages/ParticipantListPage'
 import CreateParticipantPage from './pages/CreateParticipantPage'
 import ParticipantDetailPage from './pages/ParticipantDetailPage'
 import NotFoundPage from './pages/NotFoundPage'
+import ExperimentPage from './pages/ExperimentPage'
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
                 <Route path="/labs/:labId/participants/:id" element={<ParticipantDetailPage />} />
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
               </Route>
+              <Route path="/experiment/:participantId/:labDay/:sessionType" element={<ExperimentPage />} />
             </Route>
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

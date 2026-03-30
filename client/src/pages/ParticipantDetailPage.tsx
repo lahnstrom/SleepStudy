@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useFetch } from '../hooks/useFetch'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorMessage from '../components/ErrorMessage'
@@ -22,8 +22,24 @@ function getSessionStatus(session: Session | undefined) {
   return 'in-progress' as const
 }
 
+function canLaunch(sessions: Session[], day: number, type: string): boolean {
+  const session = sessions.find((s) => s.labDay === day && s.sessionType === type)
+  if (session?.completedAt) return false // already done
+  if (type === 'encoding') return true
+  if (type === 'test1') {
+    const enc = sessions.find((s) => s.labDay === day && s.sessionType === 'encoding')
+    return !!enc?.completedAt
+  }
+  if (type === 'test2') {
+    const t1 = sessions.find((s) => s.labDay === day && s.sessionType === 'test1')
+    return !!t1?.completedAt
+  }
+  return false
+}
+
 export default function ParticipantDetailPage() {
   const { labId, id } = useParams<{ labId: string; id: string }>()
+  const navigate = useNavigate()
   const { data: participant, loading, error, refetch } = useFetch<ParticipantDetail>(
     labId && id ? `/labs/${labId}/participants/${id}` : null
   )
@@ -93,6 +109,7 @@ export default function ParticipantDetailPage() {
             {SESSION_TYPES.map((type) => {
               const session = getSessionForCell(participant.sessions, day, type)
               const status = getSessionStatus(session)
+              const launchable = canLaunch(participant.sessions, day, type)
               return (
                 <div key={`${day}-${type}`} className="session-grid-cell">
                   <StatusBadge status={status} />
@@ -100,6 +117,15 @@ export default function ParticipantDetailPage() {
                     <div className="completed-at">
                       {new Date(session.completedAt).toLocaleString()}
                     </div>
+                  )}
+                  {launchable && (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      style={{ marginTop: '0.5rem' }}
+                      onClick={() => navigate(`/experiment/${participant.id}/${day}/${type}`)}
+                    >
+                      Launch
+                    </button>
                   )}
                 </div>
               )

@@ -428,3 +428,197 @@ a:hover {
   padding: 3rem;
   color: var(--color-text-muted);
 }
+
+/* ========================================
+   Experiment Runner
+   ======================================== */
+
+.experiment-bg {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: system-ui, sans-serif;
+  cursor: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.experiment-blank {
+  width: 100%;
+  height: 100%;
+}
+
+.experiment-text {
+  text-align: center;
+  font-size: 1.2rem;
+  max-width: 500px;
+  line-height: 1.6;
+}
+
+.experiment-text h2 {
+  margin-bottom: 0.5rem;
+}
+
+.experiment-image {
+  max-width: 80vw;
+  max-height: 80vh;
+  object-fit: contain;
+}
+
+/* Fixation Cross */
+.fixation-cross {
+  font-size: 72px;
+  font-family: monospace;
+  color: #fff;
+  line-height: 1;
+}
+
+/* Rating Scale */
+.rating-container {
+  text-align: center;
+}
+
+.rating-prompt {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.rating-scale {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.2rem;
+}
+
+.rating-anchor {
+  font-size: 0.85rem;
+  color: #aaa;
+  min-width: 80px;
+}
+
+.rating-key {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+/* Memory Judgment */
+.memory-prompt {
+  text-align: center;
+}
+
+.memory-title {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.memory-keys {
+  display: flex;
+  gap: 3rem;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.memory-key-hint strong {
+  display: inline-block;
+  width: 2rem;
+  height: 2rem;
+  line-height: 2rem;
+  text-align: center;
+  border: 1px solid #555;
+  border-radius: 4px;
+  margin-right: 0.5rem;
+}
+
+/* Pause Screen */
+.pause-screen {
+  text-align: center;
+}
+
+.pause-title {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.pause-countdown {
+  font-size: 4rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pause-hint {
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+/* Practice Screens */
+.practice-screen {
+  text-align: center;
+  max-width: 500px;
+  line-height: 1.6;
+}
+
+.practice-screen h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.practice-screen p {
+  margin-bottom: 0.75rem;
+}
+
+.practice-hint {
+  margin-top: 1.5rem;
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+.practice-warning {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+.practice-ok {
+  color: #22c55e;
+}
+
+/* Image Load Progress */
+.image-load-screen {
+  text-align: center;
+}
+
+.image-load-bar-track {
+  width: 300px;
+  height: 6px;
+  background: #333;
+  border-radius: 3px;
+  margin-top: 1rem;
+  overflow: hidden;
+}
+
+.image-load-bar-fill {
+  height: 100%;
+  background: var(--color-primary);
+  transition: width 0.2s;
+}
+
+/* Sync Status */
+.sync-status {
+  margin: 1rem 0;
+}
+
+/* Trial Counter (brief flash between trials) */
+.trial-counter {
+  font-size: 0.75rem;
+  color: #555;
+}
