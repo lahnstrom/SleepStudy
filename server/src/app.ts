@@ -20,6 +20,9 @@ const PgStore = connectPgSimple(session)
 
 export const app = express()
 
+// Trust nginx reverse proxy (needed for secure cookies over HTTPS)
+app.set('trust proxy', 1)
+
 app.use(cors({
   origin: config.clientUrl,
   credentials: true,
