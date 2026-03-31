@@ -55,6 +55,7 @@ type Action =
   | { type: 'LOAD_PROGRESS'; loaded: number; total: number }
   | { type: 'IMAGES_LOADED'; images: Map<number, HTMLImageElement> }
   | { type: 'PRACTICE_DONE'; meanDeviation: number }
+  | { type: 'TRIM_ASSIGNMENTS'; maxTrials: number }
   | { type: 'SYNC_STATUS'; syncStatus: State['syncStatus'] }
   | { type: 'ERROR'; error: string }
 
@@ -66,6 +67,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, timingConfig: action.timingConfig, inputConfig: action.inputConfig }
     case 'ASSIGNMENTS_LOADED':
       return { ...state, assignments: action.assignments }
+    case 'TRIM_ASSIGNMENTS':
+      return { ...state, assignments: state.assignments.slice(0, action.maxTrials) }
     case 'REFRESH_DETECTED':
       return { ...state, refreshRate: action.refreshRate, frameInterval: action.frameInterval }
     case 'SESSION_CREATED':
@@ -221,6 +224,23 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
     })
   }, [state.timingConfig, state.inputConfig, state.assignments, state.images, state.frameInterval, sessionType, realEngine])
 
+  // Start short demo session (8 trials, skip practice)
+  const startShortSession = useCallback(() => {
+    if (!state.timingConfig) return
+    const shortAssignments = state.assignments.slice(0, 8)
+    dispatch({ type: 'TRIM_ASSIGNMENTS', maxTrials: 8 })
+    dispatch({ type: 'SET_STATE', runnerState: 'REAL_RUNNING' })
+    realEngine.startEngine({
+      sessionType,
+      timingConfig: state.timingConfig,
+      inputConfig: state.inputConfig,
+      assignments: shortAssignments,
+      images: state.images,
+      frameInterval: state.frameInterval,
+      mode: 'real',
+    })
+  }, [state.timingConfig, state.inputConfig, state.assignments, state.images, state.frameInterval, sessionType, realEngine])
+
   // Real session complete → sync
   useEffect(() => {
     if (!realEngine.isComplete || state.runnerState !== 'REAL_RUNNING') return
@@ -287,7 +307,7 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
       return <ImageLoadProgress loaded={state.loadProgress.loaded} total={state.loadProgress.total} />
 
     case 'PRACTICE_INTRO':
-      return <PracticeIntro sessionType={sessionType} onStart={startPractice} onSkip={startReal} />
+      return <PracticeIntro sessionType={sessionType} onStart={startPractice} onSkip={startReal} onShortSession={startShortSession} />
 
     case 'PRACTICE_RUNNING':
       if (practiceEngine.isPaused && state.timingConfig) {

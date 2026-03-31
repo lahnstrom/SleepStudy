@@ -5,11 +5,12 @@ interface PracticeIntroProps {
   sessionType: SessionType
   onStart: () => void
   onSkip?: () => void
+  onShortSession?: () => void
 }
 
 const isDev = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEV_TOOLS === '1'
 
-export default function PracticeIntro({ sessionType, onStart, onSkip }: PracticeIntroProps) {
+export default function PracticeIntro({ sessionType, onStart, onSkip, onShortSession }: PracticeIntroProps) {
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.code === 'KeyQ') {
@@ -20,10 +21,14 @@ export default function PracticeIntro({ sessionType, onStart, onSkip }: Practice
         e.preventDefault()
         onSkip()
       }
+      if (e.code === 'KeyD' && isDev && onShortSession) {
+        e.preventDefault()
+        onShortSession()
+      }
     }
     document.addEventListener('keydown', handleKey, true)
     return () => document.removeEventListener('keydown', handleKey, true)
-  }, [onStart, onSkip])
+  }, [onStart, onSkip, onShortSession])
 
   const isTest = sessionType !== 'encoding'
 
@@ -45,8 +50,12 @@ export default function PracticeIntro({ sessionType, onStart, onSkip }: Practice
         </p>
       )}
       <p className="practice-hint">Experimenter: press <strong>Q</strong> to begin</p>
-      {isDev && onSkip && (
-        <p className="practice-hint">Press <strong>S</strong> to skip practice (dev only)</p>
+      {isDev && (
+        <div className="practice-hint" style={{ marginTop: '1.5rem', lineHeight: 2 }}>
+          {onSkip && <div>Press <strong>S</strong> to skip practice</div>}
+          {onShortSession && <div>Press <strong>D</strong> for short demo (8 trials)</div>}
+          <div style={{ fontSize: '0.7rem', color: '#666' }}>Dev tools — hidden in production</div>
+        </div>
       )}
     </div>
   )
