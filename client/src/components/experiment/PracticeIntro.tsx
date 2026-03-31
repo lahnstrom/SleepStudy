@@ -4,19 +4,26 @@ import type { SessionType } from '../../lib/experimentTypes'
 interface PracticeIntroProps {
   sessionType: SessionType
   onStart: () => void
+  onSkip?: () => void
 }
 
-export default function PracticeIntro({ sessionType, onStart }: PracticeIntroProps) {
+const isDev = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEV_TOOLS === '1'
+
+export default function PracticeIntro({ sessionType, onStart, onSkip }: PracticeIntroProps) {
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.code === 'KeyQ') {
         e.preventDefault()
         onStart()
       }
+      if (e.code === 'KeyS' && isDev && onSkip) {
+        e.preventDefault()
+        onSkip()
+      }
     }
     document.addEventListener('keydown', handleKey, true)
     return () => document.removeEventListener('keydown', handleKey, true)
-  }, [onStart])
+  }, [onStart, onSkip])
 
   const isTest = sessionType !== 'encoding'
 
@@ -38,6 +45,9 @@ export default function PracticeIntro({ sessionType, onStart }: PracticeIntroPro
         </p>
       )}
       <p className="practice-hint">Experimenter: press <strong>Q</strong> to begin</p>
+      {isDev && onSkip && (
+        <p className="practice-hint">Press <strong>S</strong> to skip practice (dev only)</p>
+      )}
     </div>
   )
 }

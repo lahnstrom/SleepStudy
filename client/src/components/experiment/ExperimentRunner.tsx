@@ -287,7 +287,7 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
       return <ImageLoadProgress loaded={state.loadProgress.loaded} total={state.loadProgress.total} />
 
     case 'PRACTICE_INTRO':
-      return <PracticeIntro sessionType={sessionType} onStart={startPractice} />
+      return <PracticeIntro sessionType={sessionType} onStart={startPractice} onSkip={startReal} />
 
     case 'PRACTICE_RUNNING':
       if (practiceEngine.isPaused && state.timingConfig) {
