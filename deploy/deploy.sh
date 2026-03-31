@@ -23,6 +23,16 @@ npx tsx src/migrate.ts
 echo "=== Building client ==="
 cd "$PROJECT_DIR/client"
 npm ci
+
+# Pre-flight check: warn if dev tools are enabled
+if grep -q 'VITE_SHOW_DEV_TOOLS=1' .env 2>/dev/null; then
+  echo ""
+  echo "  *** WARNING: VITE_SHOW_DEV_TOOLS=1 is set ***"
+  echo "  *** Dev tools (skip practice, etc.) will be visible to users ***"
+  echo "  *** Set to 0 in client/.env before deploying to production ***"
+  echo ""
+fi
+
 npx vite build
 
 echo "=== Deploying frontend ==="
