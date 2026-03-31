@@ -12,7 +12,7 @@ router.get('/{*filepath}', requireAuth, (req, res) => {
     return
   }
 
-  const fullPath = path.join(config.imageDir, filePath)
+  const fullPath = path.resolve(config.imageDir, filePath)
   res.sendFile(fullPath, {
     headers: {
       'Cache-Control': 'public, max-age=31536000, immutable',

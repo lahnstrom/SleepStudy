@@ -27,3 +27,6 @@ BackgroundInfo/
 
 # Uploaded data (EDF files, etc.)
 uploads/
+
+# Generated/local images
+server/images/

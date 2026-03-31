@@ -1,4 +1,4 @@
-import { useParams, Navigate } from 'react-router-dom'
+import { useParams, useSearchParams, Navigate } from 'react-router-dom'
 import type { SessionType } from '../lib/experimentTypes'
 import FullscreenWrapper from '../components/experiment/FullscreenWrapper'
 import ExperimentRunner from '../components/experiment/ExperimentRunner'
@@ -12,8 +12,10 @@ export default function ExperimentPage() {
     sessionType: string
   }>()
 
+  const [searchParams] = useSearchParams()
   const pid = Number(participantId)
   const day = Number(labDay)
+  const maxTrials = searchParams.get('trials') ? Number(searchParams.get('trials')) : undefined
 
   if (
     isNaN(pid) || isNaN(day) ||
@@ -29,6 +31,7 @@ export default function ExperimentPage() {
         participantId={pid}
         labDay={day}
         sessionType={sessionType as SessionType}
+        maxTrials={maxTrials}
       />
     </FullscreenWrapper>
   )

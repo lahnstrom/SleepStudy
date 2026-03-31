@@ -1,0 +1,24 @@
+# Replace naps.example.com with your actual domain
+naps.example.com {
+    # API requests → Express
+    handle /api/* {
+        reverse_proxy localhost:3000
+    }
+
+    # Everything else → static frontend
+    handle {
+        root * /var/www/naps/client
+        file_server
+        try_files {path} /index.html
+    }
+
+    # Compression
+    encode gzip
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}

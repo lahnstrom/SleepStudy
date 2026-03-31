@@ -26,6 +26,7 @@ interface ExperimentRunnerProps {
   participantId: number
   labDay: number
   sessionType: SessionType
+  maxTrials?: number // limit trial count for testing (e.g. ?trials=3)
 }
 
 interface State {
@@ -93,7 +94,7 @@ const PRACTICE_ASSIGNMENTS: ImageAssignment[] = Array.from({ length: 6 }, (_, i)
   emotion: 'neutral' as const,
 }))
 
-export default function ExperimentRunner({ participantId, labDay, sessionType }: ExperimentRunnerProps) {
+export default function ExperimentRunner({ participantId, labDay, sessionType, maxTrials }: ExperimentRunnerProps) {
   const [state, dispatch] = useReducer(reducer, {
     runnerState: 'LOADING_CONFIG',
     timingConfig: null,
@@ -133,7 +134,8 @@ export default function ExperimentRunner({ participantId, labDay, sessionType }:
         const assignments = await api<ImageAssignment[]>(
           `/participants/${participantId}/assignments?labDay=${labDay}&sessionType=${sessionType}`
         )
-        dispatch({ type: 'ASSIGNMENTS_LOADED', assignments })
+        const trimmed = maxTrials ? assignments.slice(0, maxTrials) : assignments
+        dispatch({ type: 'ASSIGNMENTS_LOADED', assignments: trimmed })
 
         // 3. Detect refresh rate
         const { refreshRate, frameInterval } = await detectRefreshRate()
