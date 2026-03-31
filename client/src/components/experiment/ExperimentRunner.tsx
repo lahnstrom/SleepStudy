@@ -145,16 +145,23 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
         const { refreshRate, frameInterval } = await detectRefreshRate()
         dispatch({ type: 'REFRESH_DETECTED', refreshRate, frameInterval })
 
-        // 4. Create session
-        const sessionId = crypto.randomUUID()
+        // 4. Create session (server returns existing session if already created)
+        const proposedId = crypto.randomUUID()
+        let sessionId: string
         try {
-          await api('/sessions', {
+          const session = await api<{ id: string }>('/sessions', {
             method: 'POST',
-            body: JSON.stringify({ sessionId, participantId, labDay, sessionType }),
+            body: JSON.stringify({ sessionId: proposedId, participantId, labDay, sessionType }),
           })
+          sessionId = session.id
         } catch (err) {
-          // Session may already exist (idempotent)
-          if (!(err instanceof ApiError && err.status === 409)) throw err
+          if (err instanceof ApiError && err.status === 409) {
+            // Session already exists — this shouldn't happen with ON CONFLICT DO UPDATE
+            // but handle it gracefully by using the proposed ID
+            sessionId = proposedId
+          } else {
+            throw err
+          }
         }
         dispatch({ type: 'SESSION_CREATED', sessionId })
 
@@ -249,8 +256,9 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
 
     async function sync() {
       try {
-        // Get trials from IndexedDB
-        const trials = await idbGetTrials(state.sessionId)
+        // Use trials from React state (more reliable than IndexedDB
+        // since the sessionId in the hook closure may have been 'pending')
+        const trials = realEngine.completedTrials
         const trialPayload = trials.map((t) => ({
           trialNumber: t.trialNumber,
           imageId: t.imageId,
@@ -285,14 +293,15 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
 
         await updateSessionStatus(state.sessionId, 'synced', trials.length)
         dispatch({ type: 'SYNC_STATUS', syncStatus: 'synced' })
-      } catch {
+      } catch (err) {
+        console.error('Sync failed:', err)
         dispatch({ type: 'SYNC_STATUS', syncStatus: 'error' })
       }
       dispatch({ type: 'SET_STATE', runnerState: 'DONE' })
     }
 
     sync()
-  }, [realEngine.isComplete, state.runnerState, state.sessionId, state.timingConfig, state.refreshRate])
+  }, [realEngine.isComplete, realEngine.completedTrials, state.runnerState, state.sessionId, state.timingConfig, state.refreshRate])
 
   // Determine which engine is active
   const activeEngine = state.runnerState === 'PRACTICE_RUNNING' ? practiceEngine : realEngine
