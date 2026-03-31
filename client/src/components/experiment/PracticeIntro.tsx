@@ -53,7 +53,7 @@ export default function PracticeIntro({ sessionType, onStart, onSkip, onShortSes
       {isDev && (
         <div className="practice-hint" style={{ marginTop: '1.5rem', lineHeight: 2 }}>
           {onSkip && <div>Press <strong>S</strong> to skip practice</div>}
-          {onShortSession && <div>Press <strong>D</strong> for short demo (8 trials)</div>}
+          {onShortSession && <div>Press <strong>D</strong> for short demo (3 trials)</div>}
           <div style={{ fontSize: '0.7rem', color: '#666' }}>Dev tools — hidden in production</div>
         </div>
       )}

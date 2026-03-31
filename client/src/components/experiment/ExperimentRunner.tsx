@@ -234,7 +234,7 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
   // Start short demo session (8 trials, skip practice)
   const startShortSession = useCallback(() => {
     if (!state.timingConfig) return
-    const shortAssignments = state.assignments.slice(0, 8)
+    const shortAssignments = state.assignments.slice(0, 3)
     dispatch({ type: 'TRIM_ASSIGNMENTS', maxTrials: 8 })
     dispatch({ type: 'SET_STATE', runnerState: 'REAL_RUNNING' })
     realEngine.startEngine({
