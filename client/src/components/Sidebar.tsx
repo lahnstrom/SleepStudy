@@ -28,6 +28,16 @@ export default function Sidebar() {
             Participants
           </NavLink>
         )}
+
+        <NavLink to="/export" className="sidebar-link">
+          Data Export
+        </NavLink>
+
+        {user?.role === 'admin' && (
+          <NavLink to="/admin" className="sidebar-link">
+            Admin
+          </NavLink>
+        )}
       </nav>
 
       <div className="sidebar-footer">

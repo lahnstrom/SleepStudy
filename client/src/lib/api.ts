@@ -34,3 +34,20 @@ export class ApiError extends Error {
     this.name = 'ApiError'
   }
 }
+
+export async function downloadFile(path: string, fallbackFilename: string): Promise<void> {
+  const res = await fetch(`${API_URL}${path}`, { credentials: 'include' })
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new ApiError(res.status, body.error ?? 'Download failed')
+  }
+
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fallbackFilename
+  a.click()
+  URL.revokeObjectURL(url)
+}
