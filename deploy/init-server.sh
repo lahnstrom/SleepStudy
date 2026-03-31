@@ -4,16 +4,33 @@ set -euo pipefail
 
 cd /opt/naps/server
 
+# Generate secrets
+SESSION_SECRET=$(openssl rand -hex 24)
+DB_PASSWORD=$(openssl rand -hex 16)
+
+# PostgreSQL setup with password
+sudo -u postgres psql -c "DO \$\$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'naps') THEN
+    CREATE ROLE naps WITH LOGIN PASSWORD '${DB_PASSWORD}';
+  ELSE
+    ALTER ROLE naps WITH PASSWORD '${DB_PASSWORD}';
+  END IF;
+END
+\$\$;"
+sudo -u postgres createdb -O naps naps 2>/dev/null || true
+echo "Database ready"
+
 # Generate .env
-SECRET=$(openssl rand -hex 24)
 cat > .env << ENVEOF
-DATABASE_URL=postgresql://${USER}@localhost:5432/naps
-SESSION_SECRET=${SECRET}
+DATABASE_URL=postgresql://naps:${DB_PASSWORD}@localhost:5432/naps
+SESSION_SECRET=${SESSION_SECRET}
 CLIENT_URL=https://naps.metaresearch.se
 PORT=3000
 IMAGE_DIR=/opt/naps/server/images
 NODE_ENV=production
 ENVEOF
+chmod 600 .env
 echo "Created .env"
 
 # Build server
@@ -21,14 +38,9 @@ npm ci
 npx tsc
 echo "Server built"
 
-# PostgreSQL setup
-sudo -u postgres createuser "$USER" 2>/dev/null || true
-sudo -u postgres createdb -O "$USER" naps 2>/dev/null || true
-echo "Database ready"
-
 # Migrations + seed
 npx tsx src/migrate.ts
-psql naps < /opt/naps/server/migrations/004_seed_input_config.sql
+psql "postgresql://naps:${DB_PASSWORD}@localhost:5432/naps" < /opt/naps/server/migrations/004_seed_input_config.sql
 npx tsx src/seed.ts demoPassword123
 echo "Migrations and seed complete"
 
@@ -108,3 +120,4 @@ echo ""
 echo "=== Done! ==="
 echo "Run this to get HTTPS: sudo certbot --nginx -d naps.metaresearch.se"
 echo "Login: admin@ki.se / demoPassword123"
+echo "DB credentials are in /opt/naps/server/.env (chmod 600)"
