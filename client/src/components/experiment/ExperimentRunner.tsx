@@ -27,6 +27,7 @@ interface ExperimentRunnerProps {
   labDay: number
   sessionType: SessionType
   maxTrials?: number // limit trial count for testing (e.g. ?trials=3)
+  skipPractice?: boolean // skip practice (e.g. ?skipPractice=1)
 }
 
 interface State {
@@ -94,7 +95,7 @@ const PRACTICE_ASSIGNMENTS: ImageAssignment[] = Array.from({ length: 6 }, (_, i)
   emotion: 'neutral' as const,
 }))
 
-export default function ExperimentRunner({ participantId, labDay, sessionType, maxTrials }: ExperimentRunnerProps) {
+export default function ExperimentRunner({ participantId, labDay, sessionType, maxTrials, skipPractice }: ExperimentRunnerProps) {
   const [state, dispatch] = useReducer(reducer, {
     runnerState: 'LOADING_CONFIG',
     timingConfig: null,
@@ -173,7 +174,7 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
         dispatch({ type: 'IMAGES_LOADED', images })
 
         // 6. Ready for practice
-        dispatch({ type: 'SET_STATE', runnerState: 'PRACTICE_INTRO' })
+        dispatch({ type: 'SET_STATE', runnerState: skipPractice ? 'PRACTICE_COMPLETE' : 'PRACTICE_INTRO' })
       } catch (err: any) {
         dispatch({ type: 'ERROR', error: err.message || 'Initialization failed' })
       }

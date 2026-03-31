@@ -16,6 +16,7 @@ export default function ExperimentPage() {
   const pid = Number(participantId)
   const day = Number(labDay)
   const maxTrials = searchParams.get('trials') ? Number(searchParams.get('trials')) : undefined
+  const skipPractice = searchParams.get('skipPractice') === '1'
 
   if (
     isNaN(pid) || isNaN(day) ||
@@ -32,6 +33,7 @@ export default function ExperimentPage() {
         labDay={day}
         sessionType={sessionType as SessionType}
         maxTrials={maxTrials}
+        skipPractice={skipPractice}
       />
     </FullscreenWrapper>
   )
