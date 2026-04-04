@@ -5,7 +5,7 @@
 set -euo pipefail
 
 PROJECT_DIR="/opt/naps"
-CLIENT_DIR="/var/www/naps/client"
+CLIENT_DIR="/var/www/naps"
 
 cd "$PROJECT_DIR"
 
@@ -41,7 +41,7 @@ cp -r dist/* "$CLIENT_DIR/"
 
 echo "=== Restarting services ==="
 sudo systemctl restart naps
-sudo systemctl reload caddy
+sudo systemctl reload nginx
 
 echo "=== Deploy complete ==="
 echo "Check status: systemctl status naps"

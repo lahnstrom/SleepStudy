@@ -3,10 +3,11 @@ import { useState, useEffect } from 'react'
 interface PauseScreenProps {
   duration: number // ms
   resumeKeyLabel: string
+  resumeKeyCode: string
   onResume: () => void
 }
 
-export default function PauseScreen({ duration, resumeKeyLabel, onResume }: PauseScreenProps) {
+export default function PauseScreen({ duration, resumeKeyLabel, resumeKeyCode, onResume }: PauseScreenProps) {
   const [remaining, setRemaining] = useState(Math.ceil(duration / 1000))
 
   useEffect(() => {
@@ -18,7 +19,7 @@ export default function PauseScreen({ duration, resumeKeyLabel, onResume }: Paus
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.code === 'KeyQ') {
+      if (e.code === resumeKeyCode) {
         e.preventDefault()
         onResume()
       }

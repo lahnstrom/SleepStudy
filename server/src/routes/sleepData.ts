@@ -17,8 +17,23 @@ const sleepDataSchema = z.object({
   notes: z.string().optional(),
 })
 
+async function verifyParticipantOwnership(participantId: number, labId: number): Promise<boolean> {
+  const result = await pool.query(
+    'SELECT 1 FROM participants WHERE id = $1 AND lab_id = $2',
+    [participantId, labId]
+  )
+  return result.rows.length > 0
+}
+
 router.get('/:labId/participants/:participantId/sleep-data', requireLabAccess('labId'), async (req, res) => {
   const participantId = parseInt(String(req.params.participantId), 10)
+  const labId = parseInt(String(req.params.labId), 10)
+
+  if (!await verifyParticipantOwnership(participantId, labId)) {
+    res.status(404).json({ error: 'Participant not found in this lab' })
+    return
+  }
+
   const result = await pool.query(
     'SELECT * FROM sleep_data WHERE participant_id = $1 ORDER BY lab_day',
     [participantId]
@@ -28,6 +43,13 @@ router.get('/:labId/participants/:participantId/sleep-data', requireLabAccess('l
 
 router.post('/:labId/participants/:participantId/sleep-data', requireLabAccess('labId'), async (req, res) => {
   const participantId = parseInt(String(req.params.participantId), 10)
+  const labId = parseInt(String(req.params.labId), 10)
+
+  if (!await verifyParticipantOwnership(participantId, labId)) {
+    res.status(404).json({ error: 'Participant not found in this lab' })
+    return
+  }
+
   const parsed = sleepDataSchema.safeParse(req.body)
   if (!parsed.success) {
     res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
@@ -35,28 +57,24 @@ router.post('/:labId/participants/:participantId/sleep-data', requireLabAccess('
   }
 
   const d = parsed.data
-  try {
-    const result = await pool.query(
-      `INSERT INTO sleep_data (participant_id, lab_day, total_sleep_min, n1_min, n2_min, n3_min, rem_min, wake_after_sleep_onset_min, sleep_onset_latency_min, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       ON CONFLICT (participant_id, lab_day) DO UPDATE SET
-         total_sleep_min = EXCLUDED.total_sleep_min,
-         n1_min = EXCLUDED.n1_min,
-         n2_min = EXCLUDED.n2_min,
-         n3_min = EXCLUDED.n3_min,
-         rem_min = EXCLUDED.rem_min,
-         wake_after_sleep_onset_min = EXCLUDED.wake_after_sleep_onset_min,
-         sleep_onset_latency_min = EXCLUDED.sleep_onset_latency_min,
-         notes = EXCLUDED.notes
-       RETURNING *`,
-      [participantId, d.labDay, d.totalSleepMin ?? null, d.n1Min ?? null, d.n2Min ?? null,
-       d.n3Min ?? null, d.remMin ?? null, d.wakeAfterSleepOnsetMin ?? null,
-       d.sleepOnsetLatencyMin ?? null, d.notes ?? null]
-    )
-    res.status(201).json(result.rows[0])
-  } catch (err: any) {
-    throw err
-  }
+  const result = await pool.query(
+    `INSERT INTO sleep_data (participant_id, lab_day, total_sleep_min, n1_min, n2_min, n3_min, rem_min, wake_after_sleep_onset_min, sleep_onset_latency_min, notes)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     ON CONFLICT (participant_id, lab_day) DO UPDATE SET
+       total_sleep_min = EXCLUDED.total_sleep_min,
+       n1_min = EXCLUDED.n1_min,
+       n2_min = EXCLUDED.n2_min,
+       n3_min = EXCLUDED.n3_min,
+       rem_min = EXCLUDED.rem_min,
+       wake_after_sleep_onset_min = EXCLUDED.wake_after_sleep_onset_min,
+       sleep_onset_latency_min = EXCLUDED.sleep_onset_latency_min,
+       notes = EXCLUDED.notes
+     RETURNING *`,
+    [participantId, d.labDay, d.totalSleepMin ?? null, d.n1Min ?? null, d.n2Min ?? null,
+     d.n3Min ?? null, d.remMin ?? null, d.wakeAfterSleepOnsetMin ?? null,
+     d.sleepOnsetLatencyMin ?? null, d.notes ?? null]
+  )
+  res.status(201).json(result.rows[0])
 })
 
 export default router

@@ -55,7 +55,6 @@ type Action =
   | { type: 'LOAD_PROGRESS'; loaded: number; total: number }
   | { type: 'IMAGES_LOADED'; images: Map<number, HTMLImageElement> }
   | { type: 'PRACTICE_DONE'; meanDeviation: number }
-  | { type: 'TRIM_ASSIGNMENTS'; maxTrials: number }
   | { type: 'SYNC_STATUS'; syncStatus: State['syncStatus'] }
   | { type: 'ERROR'; error: string }
 
@@ -67,8 +66,6 @@ function reducer(state: State, action: Action): State {
       return { ...state, timingConfig: action.timingConfig, inputConfig: action.inputConfig }
     case 'ASSIGNMENTS_LOADED':
       return { ...state, assignments: action.assignments }
-    case 'TRIM_ASSIGNMENTS':
-      return { ...state, assignments: state.assignments.slice(0, action.maxTrials) }
     case 'REFRESH_DETECTED':
       return { ...state, refreshRate: action.refreshRate, frameInterval: action.frameInterval }
     case 'SESSION_CREATED':
@@ -178,7 +175,7 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
 
         // 5. Preload images
         dispatch({ type: 'SET_STATE', runnerState: 'LOADING_IMAGES' })
-        const images = await preloadImages(assignments, (loaded, total) => {
+        const images = await preloadImages(trimmed, (loaded, total) => {
           dispatch({ type: 'LOAD_PROGRESS', loaded, total })
         })
         dispatch({ type: 'IMAGES_LOADED', images })
@@ -231,11 +228,10 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
     })
   }, [state.timingConfig, state.inputConfig, state.assignments, state.images, state.frameInterval, sessionType, realEngine])
 
-  // Start short demo session (8 trials, skip practice)
+  // Start short demo session (3 trials, skip practice)
   const startShortSession = useCallback(() => {
     if (!state.timingConfig) return
     const shortAssignments = state.assignments.slice(0, 3)
-    dispatch({ type: 'TRIM_ASSIGNMENTS', maxTrials: 8 })
     dispatch({ type: 'SET_STATE', runnerState: 'REAL_RUNNING' })
     realEngine.startEngine({
       sessionType,
@@ -323,7 +319,8 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
         return (
           <PauseScreen
             duration={state.timingConfig.pauseDuration}
-            resumeKeyLabel="Q"
+            resumeKeyLabel={state.inputConfig.resumeKey.replace('Key', '')}
+            resumeKeyCode={state.inputConfig.resumeKey}
             onResume={practiceEngine.resumeFromPause}
           />
         )
@@ -349,7 +346,8 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
         return (
           <PauseScreen
             duration={state.timingConfig.pauseDuration}
-            resumeKeyLabel="Q"
+            resumeKeyLabel={state.inputConfig.resumeKey.replace('Key', '')}
+            resumeKeyCode={state.inputConfig.resumeKey}
             onResume={realEngine.resumeFromPause}
           />
         )

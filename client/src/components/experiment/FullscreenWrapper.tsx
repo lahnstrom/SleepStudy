@@ -1,7 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 
 export default function FullscreenWrapper({ children }: { children: ReactNode }) {
-  const containerRef = useRef<HTMLDivElement>(null)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
 
   useEffect(() => {
@@ -34,7 +33,7 @@ export default function FullscreenWrapper({ children }: { children: ReactNode })
   }, [])
 
   return (
-    <div ref={containerRef} className="experiment-bg">
+    <div className="experiment-bg">
       {children}
     </div>
   )

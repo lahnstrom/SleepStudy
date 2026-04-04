@@ -43,6 +43,24 @@ router.post('/:sessionId/trials', requireAuth, async (req, res) => {
   try {
     await client.query('BEGIN')
 
+    // Guard: reject if session is already completed
+    const sessionCheck = await client.query(
+      'SELECT completed_at FROM sessions WHERE id = $1',
+      [sessionId]
+    )
+    if (sessionCheck.rows.length === 0) {
+      await client.query('ROLLBACK')
+      client.release()
+      res.status(404).json({ error: 'Session not found' })
+      return
+    }
+    if (sessionCheck.rows[0].completed_at) {
+      await client.query('ROLLBACK')
+      client.release()
+      res.status(409).json({ error: 'Cannot insert trials into a completed session' })
+      return
+    }
+
     for (const trial of parsed.data.trials) {
       await client.query(
         `INSERT INTO trials (

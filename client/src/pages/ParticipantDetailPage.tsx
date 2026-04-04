@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useFetch } from '../hooks/useFetch'
 import { downloadFile } from '../lib/api'
@@ -56,11 +56,10 @@ export default function ParticipantDetailPage() {
 
   const [showSleepForm, setShowSleepForm] = useState<1 | 2 | null>(null)
   const [showQForm, setShowQForm] = useState<1 | 2 | null>(null)
+  const [downloading, setDownloading] = useState(false)
 
   if (loading) return <LoadingSpinner />
   if (error) return <ErrorMessage message={error} onRetry={refetch} />
-  const [downloading, setDownloading] = useState(false)
-
   if (!participant) return <ErrorMessage message="Participant not found" />
 
   async function handleDownloadCsv() {
@@ -137,8 +136,8 @@ export default function ParticipantDetailPage() {
         ))}
 
         {[1, 2].map((day) => (
-          <>
-            <div key={`label-${day}`} className="session-grid-label">
+          <Fragment key={day}>
+            <div className="session-grid-label">
               Day {day} — {conditionForDay(day)}
             </div>
             {SESSION_TYPES.map((type) => {
@@ -165,7 +164,7 @@ export default function ParticipantDetailPage() {
                 </div>
               )
             })}
-          </>
+          </Fragment>
         ))}
       </div>
 
