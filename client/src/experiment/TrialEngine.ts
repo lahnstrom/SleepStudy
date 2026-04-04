@@ -213,7 +213,6 @@ export class TrialEngine {
     if (phase !== TrialPhase.TRIAL_COMPLETE && elapsed >= this.phaseDuration(phase)) {
       if (phase === TrialPhase.IMAGE) {
         this.imageActualMs = timestamp - this.imageOnsetTime
-        this.presentedAt = new Date(performance.timeOrigin + this.imageOnsetTime).toISOString()
       }
       this.advancePhase(timestamp)
     }
@@ -278,6 +277,7 @@ export class TrialEngine {
 
     if (nextPhase === TrialPhase.IMAGE) {
       this.imageOnsetTime = timestamp
+      this.presentedAt = new Date(performance.timeOrigin + timestamp).toISOString()
       this.imageFrameCount = 0
       this.trialDroppedFrames = 0
     }

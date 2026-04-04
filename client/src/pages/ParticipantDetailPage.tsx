@@ -168,18 +168,22 @@ export default function ParticipantDetailPage() {
         ))}
       </div>
 
-      {/* Sleep Data */}
+      {/* Sleep Data — only for the sleep condition day */}
       <h2 style={{ fontSize: '1.1rem', margin: '1.5rem 0 0.75rem' }}>Sleep Data</h2>
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         {[1, 2].map((day) => {
+          const condition = conditionForDay(day)
+          const isSleepDay = condition === 'Sleep'
           const existing = sleepData?.find((s: any) => s.lab_day === day)
           return (
             <div key={day} style={{ marginBottom: day === 1 ? '1rem' : 0 }}>
               <h3 style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-                Day {day} — {conditionForDay(day)}
+                Day {day} — {condition}
                 {existing && <span className="badge badge-complete" style={{ marginLeft: '0.5rem' }}>Entered</span>}
               </h3>
-              {showSleepForm === day || existing ? (
+              {!isSleepDay ? (
+                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Wake condition — no sleep data to enter</p>
+              ) : showSleepForm === day || existing ? (
                 <SleepDataForm
                   labId={labId!}
                   participantId={participant.id}

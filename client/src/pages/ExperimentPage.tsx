@@ -15,8 +15,9 @@ export default function ExperimentPage() {
   const [searchParams] = useSearchParams()
   const pid = Number(participantId)
   const day = Number(labDay)
-  const maxTrials = searchParams.get('trials') ? Number(searchParams.get('trials')) : undefined
-  const skipPractice = searchParams.get('skipPractice') === '1'
+  const isDev = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEV_TOOLS === '1'
+  const maxTrials = isDev && searchParams.get('trials') ? Number(searchParams.get('trials')) : undefined
+  const skipPractice = isDev && searchParams.get('skipPractice') === '1'
 
   if (
     isNaN(pid) || isNaN(day) ||

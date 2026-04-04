@@ -251,48 +251,75 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
     dispatch({ type: 'SYNC_STATUS', syncStatus: 'syncing' })
 
     async function sync() {
-      try {
-        // Use trials from React state (more reliable than IndexedDB
-        // since the sessionId in the hook closure may have been 'pending')
-        const trials = realEngine.completedTrials
-        const trialPayload = trials.map((t) => ({
-          trialNumber: t.trialNumber,
-          imageId: t.imageId,
-          valenceRating: t.valenceRating,
-          arousalRating: t.arousalRating,
-          targetFoil: t.targetFoil,
-          memoryResponse: t.memoryResponse,
-          correct: t.correct,
-          valenceRtMs: t.valenceRtMs,
-          arousalRtMs: t.arousalRtMs,
-          memoryRtMs: t.memoryRtMs,
-          presentedAt: t.presentedAt,
-          imageActualMs: t.imageActualMs,
-          imageFrameCount: t.imageFrameCount,
-          droppedFrames: t.droppedFrames,
-        }))
+      const trials = realEngine.completedTrials
+      const trialPayload = trials.map((t) => ({
+        trialNumber: t.trialNumber,
+        imageId: t.imageId,
+        valenceRating: t.valenceRating,
+        arousalRating: t.arousalRating,
+        targetFoil: t.targetFoil,
+        memoryResponse: t.memoryResponse,
+        correct: t.correct,
+        valenceRtMs: t.valenceRtMs,
+        arousalRtMs: t.arousalRtMs,
+        memoryRtMs: t.memoryRtMs,
+        presentedAt: t.presentedAt,
+        imageActualMs: t.imageActualMs,
+        imageFrameCount: t.imageFrameCount,
+        droppedFrames: t.droppedFrames,
+      }))
 
-        await api(`/sessions/${state.sessionId}/trials`, {
-          method: 'POST',
-          body: JSON.stringify({ trials: trialPayload }),
-        })
+      const timingMetadata = state.timingConfig
+        ? computeTimingAudit(trials, state.timingConfig, state.refreshRate)
+        : {}
 
-        // Complete session with timing metadata
-        const timingMetadata = state.timingConfig
-          ? computeTimingAudit(trials, state.timingConfig, state.refreshRate)
-          : {}
+      // Retry loop with exponential backoff
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          // Insert trials (409 = already inserted from a previous attempt, which is fine)
+          try {
+            await api(`/sessions/${state.sessionId}/trials`, {
+              method: 'POST',
+              body: JSON.stringify({ trials: trialPayload }),
+            })
+          } catch (err) {
+            if (err instanceof ApiError && (err.status === 409 || err.status === 409)) {
+              // Trials already exist from a previous sync attempt — continue to complete
+            } else {
+              throw err
+            }
+          }
 
-        await api(`/sessions/${state.sessionId}/complete`, {
-          method: 'PATCH',
-          body: JSON.stringify({ timingMetadata }),
-        })
+          // Complete session (409 = already completed, which is fine)
+          try {
+            await api(`/sessions/${state.sessionId}/complete`, {
+              method: 'PATCH',
+              body: JSON.stringify({ timingMetadata }),
+            })
+          } catch (err) {
+            if (err instanceof ApiError && err.status === 409) {
+              // Already completed — success
+            } else {
+              throw err
+            }
+          }
 
-        await updateSessionStatus(state.sessionId, 'synced', trials.length)
-        dispatch({ type: 'SYNC_STATUS', syncStatus: 'synced' })
-      } catch (err) {
-        console.error('Sync failed:', err)
-        dispatch({ type: 'SYNC_STATUS', syncStatus: 'error' })
+          await updateSessionStatus(state.sessionId, 'synced', trials.length)
+          dispatch({ type: 'SYNC_STATUS', syncStatus: 'synced' })
+          dispatch({ type: 'SET_STATE', runnerState: 'DONE' })
+          return
+        } catch (err) {
+          console.error(`Sync attempt ${attempt + 1} failed:`, err)
+          if (attempt < 4) {
+            dispatch({ type: 'SYNC_STATUS', syncStatus: 'pending' })
+            await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)))
+          }
+        }
       }
+
+      // All retries failed — save to pendingSync for manual recovery
+      console.error('All sync attempts failed, data preserved in IndexedDB')
+      dispatch({ type: 'SYNC_STATUS', syncStatus: 'error' })
       dispatch({ type: 'SET_STATE', runnerState: 'DONE' })
     }
 

@@ -43,13 +43,20 @@ router.get('/:participantId/assignments', requireAuth, async (req, res) => {
     params.push(...roles)
   }
 
+  // For test sessions, use test_position for combined ordering
+  // For encoding, use presentation_position
+  const isTest = sessionType === 'test1' || sessionType === 'test2'
+  const orderClause = isTest
+    ? 'ORDER BY a.test_position NULLS LAST'
+    : 'ORDER BY a.presentation_position'
+
   const result = await pool.query(
     `SELECT a.id, a.image_id, a.lab_day, a.image_role, a.presentation_position,
-            i.filename, i.emotion
+            a.test_position, i.filename, i.emotion
      FROM participant_image_assignments a
      JOIN images i ON i.id = a.image_id
      WHERE a.participant_id = $1 AND a.lab_day = $2${roleClause}
-     ORDER BY a.image_role, a.presentation_position`,
+     ${orderClause}`,
     params
   )
 
