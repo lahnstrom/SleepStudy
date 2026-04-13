@@ -32,7 +32,7 @@ export async function preloadImages(
 async function loadSingleImage(assignment: ImageAssignment, retries = 3): Promise<HTMLImageElement> {
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      const res = await fetch(`${API_URL}/images/${assignment.filename}`, {
+      const res = await fetch(`${API_URL}/images/${encodeURIComponent(assignment.filename)}`, {
         credentials: 'include',
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)

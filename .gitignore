@@ -30,3 +30,7 @@ uploads/
 
 # Generated/local images
 server/images/
+
+# Stimulus image sources (not committed — too large, restricted by license)
+Neutrala/
+Neutrala.zip

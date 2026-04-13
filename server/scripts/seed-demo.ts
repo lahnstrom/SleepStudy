@@ -1,10 +1,22 @@
 /**
  * Seeds demo data: a lab, a lab user, and test images.
+ * Neutral images are loaded from the Neutrala/ folder (real stimulus images).
+ * Negative images use placeholders until real negative images are provided.
  * Usage: npx tsx scripts/seed-demo.ts
  */
 
+import fs from 'node:fs'
+import path from 'node:path'
 import bcrypt from 'bcrypt'
 import { pool } from '../src/db.js'
+
+function inferSource(filename: string): string {
+  if (/^\d+\.\w+$/.test(filename)) return 'IAPS'
+  if (/^(Animals|Faces|Landscapes|Objects|People)_/.test(filename)) return 'Nencki'
+  if (/^EM\d+/.test(filename)) return 'EmoMadrid'
+  if (/^N\d+\.bmp$/.test(filename)) return 'Nencki'
+  return 'OASIS'
+}
 
 async function main() {
   // Create lab
@@ -27,20 +39,45 @@ async function main() {
   )
   console.log(`Lab user created:`, userResult.rows[0])
 
-  // Seed 320 test images if not present
+  // Seed images if not present
   const imageCount = await pool.query('SELECT COUNT(*) FROM images')
   if (parseInt(imageCount.rows[0].count) === 0) {
+    // Negative images: placeholders until real ones are provided
     await pool.query(`
       INSERT INTO images (filename, database_source, emotion)
       SELECT 'neg_' || i || '.jpg', 'TEST', 'negative'
       FROM generate_series(1, 160) AS i
     `)
-    await pool.query(`
-      INSERT INTO images (filename, database_source, emotion)
-      SELECT 'neu_' || i || '.jpg', 'TEST', 'neutral'
-      FROM generate_series(1, 160) AS i
-    `)
-    console.log('Seeded 320 test images')
+    console.log('Seeded 160 placeholder negative images')
+
+    // Neutral images: load real filenames from Neutrala/ folder
+    const neutralDir = path.join(process.cwd(), '..', 'Neutrala')
+    if (fs.existsSync(neutralDir)) {
+      const files = fs.readdirSync(neutralDir)
+        .filter(f => /\.(jpg|jpeg|bmp|png)$/i.test(f))
+        .sort()
+      let inserted = 0
+      for (const file of files) {
+        const source = inferSource(file)
+        const result = await pool.query(
+          `INSERT INTO images (filename, database_source, emotion)
+           VALUES ($1, $2, 'neutral')
+           ON CONFLICT (filename) DO NOTHING
+           RETURNING id`,
+          [file, source]
+        )
+        if (result.rowCount && result.rowCount > 0) inserted++
+      }
+      console.log(`Seeded ${inserted} real neutral images from Neutrala/`)
+    } else {
+      // Fallback to placeholders if Neutrala/ not found
+      await pool.query(`
+        INSERT INTO images (filename, database_source, emotion)
+        SELECT 'neu_' || i || '.jpg', 'TEST', 'neutral'
+        FROM generate_series(1, 160) AS i
+      `)
+      console.log('Seeded 160 placeholder neutral images (Neutrala/ folder not found)')
+    }
   } else {
     console.log(`Images already present (${imageCount.rows[0].count})`)
   }

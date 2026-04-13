@@ -39,6 +39,18 @@ echo "=== Deploying frontend ==="
 rm -rf "$CLIENT_DIR"/*
 cp -r dist/* "$CLIENT_DIR/"
 
+echo "=== Seeding real neutral images ==="
+cd "$PROJECT_DIR/server"
+if [ -d "$PROJECT_DIR/Neutrala" ]; then
+  echo "Copying Neutrala images to server images directory..."
+  mkdir -p images
+  cp -n "$PROJECT_DIR/Neutrala/"* images/
+  echo "Running neutral image seed..."
+  npx tsx scripts/seed-neutral-images.ts
+else
+  echo "Neutrala/ not found, skipping image seed"
+fi
+
 echo "=== Restarting services ==="
 sudo systemctl restart naps
 sudo systemctl reload nginx
