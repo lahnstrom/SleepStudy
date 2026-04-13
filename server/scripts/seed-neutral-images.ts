@@ -36,11 +36,32 @@ async function main() {
 
   console.log(`Found ${files.length} neutral image files`)
 
-  // Remove old placeholder neutral images
-  const deleted = await pool.query(
-    `DELETE FROM images WHERE emotion = 'neutral' AND database_source = 'TEST' RETURNING id`
+  // Remove old placeholder neutral images and their assignments
+  const placeholders = await pool.query(
+    `SELECT id FROM images WHERE emotion = 'neutral' AND database_source = 'TEST'`
   )
-  console.log(`Removed ${deleted.rowCount} placeholder neutral images`)
+  if (placeholders.rows.length > 0) {
+    const ids = placeholders.rows.map(r => r.id)
+    const deletedAssignments = await pool.query(
+      `DELETE FROM participant_image_assignments WHERE image_id = ANY($1) RETURNING id`,
+      [ids]
+    )
+    console.log(`Removed ${deletedAssignments.rowCount} assignments referencing placeholder images`)
+
+    const deletedTrials = await pool.query(
+      `DELETE FROM trials WHERE image_id = ANY($1) RETURNING id`,
+      [ids]
+    )
+    console.log(`Removed ${deletedTrials.rowCount} trials referencing placeholder images`)
+
+    const deleted = await pool.query(
+      `DELETE FROM images WHERE id = ANY($1) RETURNING id`,
+      [ids]
+    )
+    console.log(`Removed ${deleted.rowCount} placeholder neutral images`)
+  } else {
+    console.log('No placeholder neutral images to remove')
+  }
 
   // Insert real neutral images
   let inserted = 0
