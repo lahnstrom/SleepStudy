@@ -39,18 +39,23 @@ async function main() {
   )
   console.log(`Lab user created:`, userResult.rows[0])
 
-  // Seed images if not present
-  const imageCount = await pool.query('SELECT COUNT(*) FROM images')
-  if (parseInt(imageCount.rows[0].count) === 0) {
-    // Negative images: placeholders until real ones are provided
+  // Seed negative images (placeholders until real ones are provided)
+  const negCount = await pool.query(`SELECT COUNT(*) FROM images WHERE emotion = 'negative'`)
+  if (parseInt(negCount.rows[0].count) < 160) {
     await pool.query(`
       INSERT INTO images (filename, database_source, emotion)
       SELECT 'neg_' || i || '.jpg', 'TEST', 'negative'
       FROM generate_series(1, 160) AS i
+      ON CONFLICT (filename) DO NOTHING
     `)
-    console.log('Seeded 160 placeholder negative images')
+    console.log('Seeded placeholder negative images')
+  } else {
+    console.log(`Negative images already present (${negCount.rows[0].count})`)
+  }
 
-    // Neutral images: load real filenames from Neutrala/ folder
+  // Seed neutral images from Neutrala/ folder or placeholders
+  const neuCount = await pool.query(`SELECT COUNT(*) FROM images WHERE emotion = 'neutral'`)
+  if (parseInt(neuCount.rows[0].count) < 160) {
     const neutralDir = path.join(process.cwd(), '..', 'Neutrala')
     if (fs.existsSync(neutralDir)) {
       const files = fs.readdirSync(neutralDir)
@@ -70,16 +75,16 @@ async function main() {
       }
       console.log(`Seeded ${inserted} real neutral images from Neutrala/`)
     } else {
-      // Fallback to placeholders if Neutrala/ not found
       await pool.query(`
         INSERT INTO images (filename, database_source, emotion)
         SELECT 'neu_' || i || '.jpg', 'TEST', 'neutral'
         FROM generate_series(1, 160) AS i
+        ON CONFLICT (filename) DO NOTHING
       `)
       console.log('Seeded 160 placeholder neutral images (Neutrala/ folder not found)')
     }
   } else {
-    console.log(`Images already present (${imageCount.rows[0].count})`)
+    console.log(`Neutral images already present (${neuCount.rows[0].count})`)
   }
 
   // Create a demo participant
