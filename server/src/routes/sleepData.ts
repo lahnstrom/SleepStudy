@@ -1,7 +1,36 @@
-import { Router } from 'express'
+import { Router, type Request, type Response, type NextFunction } from 'express'
 import { z } from 'zod'
+import multer from 'multer'
+import path from 'node:path'
+import { randomUUID } from 'node:crypto'
+import { mkdirSync } from 'node:fs'
 import { pool } from '../db.js'
 import { requireLabAccess } from '../middleware/auth.js'
+import { config } from '../config.js'
+
+const sleepDataDir = path.join(config.imageDir, '..', 'sleep_data')
+mkdirSync(sleepDataDir, { recursive: true })
+
+const uploadEdf = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, sleepDataDir),
+    filename: (_req, file, cb) => cb(null, `${randomUUID()}_${file.originalname}`),
+  }),
+  fileFilter: (_req, file, cb) => {
+    if (path.extname(file.originalname).toLowerCase() === '.edf') cb(null, true)
+    else cb(new Error('Only .edf files are allowed'))
+  },
+})
+
+function handleEdfUpload(req: Request, res: Response, next: NextFunction) {
+  uploadEdf.single('edf')(req, res, (err) => {
+    if (err) {
+      res.status(400).json({ error: err.message })
+      return
+    }
+    next()
+  })
+}
 
 const router = Router()
 
@@ -76,5 +105,41 @@ router.post('/:labId/participants/:participantId/sleep-data', requireLabAccess('
   )
   res.status(201).json(result.rows[0])
 })
+
+async function checkOwnership(req: Request, res: Response, next: NextFunction) {
+  const participantId = parseInt(String(req.params.participantId), 10)
+  const labId = parseInt(String(req.params.labId), 10)
+  if (!await verifyParticipantOwnership(participantId, labId)) {
+    res.status(404).json({ error: 'Participant not found in this lab' })
+    return
+  }
+  next()
+}
+
+router.post(
+  '/:labId/participants/:participantId/sleep-data/upload',
+  requireLabAccess('labId'),
+  checkOwnership,
+  handleEdfUpload,
+  async (req, res) => {
+    const participantId = parseInt(String(req.params.participantId), 10)
+
+    if (!req.file) {
+      res.status(400).json({ error: 'No file uploaded' })
+      return
+    }
+
+    const labDay = req.body.labDay ? parseInt(String(req.body.labDay), 10) : null
+
+    const result = await pool.query(
+      `INSERT INTO file_uploads (participant_id, lab_day, file_type, original_name, storage_path, uploaded_by)
+       VALUES ($1, $2, 'edf', $3, $4, $5)
+       RETURNING id, storage_path`,
+      [participantId, labDay, req.file.originalname, req.file.path, req.session.userId]
+    )
+
+    res.status(201).json(result.rows[0])
+  }
+)
 
 export default router

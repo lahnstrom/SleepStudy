@@ -9,6 +9,8 @@ interface EngineReactState {
   isPaused: boolean
   isComplete: boolean
   completedTrials: TrialData[]
+  currentValenceRating: number | null
+  currentArousalRating: number | null
 }
 
 export function useTrialEngine(sessionId: string, mode: 'practice' | 'real') {
@@ -19,15 +21,24 @@ export function useTrialEngine(sessionId: string, mode: 'practice' | 'real') {
     isPaused: false,
     isComplete: false,
     completedTrials: [],
+    currentValenceRating: null,
+    currentArousalRating: null,
   })
 
-  const startEngine = useCallback((config: Omit<TrialEngineConfig, 'onPhaseChange' | 'onTrialComplete' | 'onSessionComplete' | 'onPause'>) => {
+  const startEngine = useCallback((config: Omit<TrialEngineConfig, 'onPhaseChange' | 'onTrialComplete' | 'onSessionComplete' | 'onPause' | 'onRatingUpdate'>) => {
     if (engineRef.current) engineRef.current.destroy()
 
     const engine = new TrialEngine({
       ...config,
       onPhaseChange: (phase, trialIndex) => {
-        setState((prev) => ({ ...prev, phase, trialIndex }))
+        setState((prev) => ({ ...prev, phase, trialIndex, currentValenceRating: null, currentArousalRating: null }))
+      },
+      onRatingUpdate: (phase, value) => {
+        if (phase === TrialPhase.VALENCE_RATING) {
+          setState((prev) => ({ ...prev, currentValenceRating: value }))
+        } else if (phase === TrialPhase.AROUSAL_RATING) {
+          setState((prev) => ({ ...prev, currentArousalRating: value }))
+        }
       },
       onTrialComplete: (trial) => {
         if (mode === 'real') {

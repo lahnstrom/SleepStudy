@@ -23,7 +23,7 @@ export async function preloadImages(
     .filter((f): f is string => f !== null)
 
   if (failed.length > 0) {
-    throw new ImageLoadError(failed)
+    console.warn(`Failed to load ${failed.length} images, using placeholders:`, failed)
   }
 
   return images
@@ -46,10 +46,26 @@ async function loadSingleImage(assignment: ImageAssignment, retries = 3): Promis
         img.src = url
       })
     } catch (err) {
-      if (attempt === retries - 1) throw err
+      if (attempt === retries - 1) return createPlaceholderImage(assignment.filename)
     }
   }
-  throw new Error('Unreachable')
+  return createPlaceholderImage(assignment.filename)
+}
+
+function createPlaceholderImage(filename: string): HTMLImageElement {
+  const canvas = document.createElement('canvas')
+  canvas.width = 800
+  canvas.height = 600
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = 'rgb(128, 128, 128)'
+  ctx.fillRect(0, 0, 800, 600)
+  ctx.fillStyle = '#fff'
+  ctx.font = '20px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.fillText(filename, 400, 300)
+  const img = new Image()
+  img.src = canvas.toDataURL()
+  return img
 }
 
 export class ImageLoadError extends Error {

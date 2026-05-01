@@ -10,9 +10,10 @@ interface TrialDisplayProps {
   inputConfig: InputConfig
   trialIndex: number
   totalTrials: number
+  selectedRating?: number | null
 }
 
-export default function TrialDisplay({ phase, currentImage, inputConfig, trialIndex, totalTrials }: TrialDisplayProps) {
+export default function TrialDisplay({ phase, currentImage, inputConfig, trialIndex, totalTrials, selectedRating }: TrialDisplayProps) {
   switch (phase) {
     case TrialPhase.FIXATION_VISIBLE:
       return <FixationCross visible />
@@ -29,10 +30,10 @@ export default function TrialDisplay({ phase, currentImage, inputConfig, trialIn
       return <MemoryJudgment inputConfig={inputConfig} />
 
     case TrialPhase.VALENCE_RATING:
-      return <RatingScale type="valence" />
+      return <RatingScale type="valence" selected={selectedRating} />
 
     case TrialPhase.AROUSAL_RATING:
-      return <RatingScale type="arousal" />
+      return <RatingScale type="arousal" selected={selectedRating} />
 
     case TrialPhase.TRIAL_COMPLETE:
       return (

@@ -1,7 +1,9 @@
 import { useState, Fragment } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useFetch } from '../hooks/useFetch'
-import { downloadFile } from '../lib/api'
+import { downloadFile, ApiError } from '../lib/api'
+
+const API_URL = import.meta.env.VITE_API_URL
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorMessage from '../components/ErrorMessage'
 import StatusBadge from '../components/StatusBadge'
@@ -57,6 +59,11 @@ export default function ParticipantDetailPage() {
   const [showSleepForm, setShowSleepForm] = useState<1 | 2 | null>(null)
   const [showQForm, setShowQForm] = useState<1 | 2 | null>(null)
   const [downloading, setDownloading] = useState(false)
+  const [downloadingAssignments, setDownloadingAssignments] = useState(false)
+  const [edfFile, setEdfFile] = useState<Record<number, File | null>>({ 1: null, 2: null })
+  const [edfUploading, setEdfUploading] = useState<Record<number, boolean>>({ 1: false, 2: false })
+  const [edfSuccess, setEdfSuccess] = useState<Record<number, string>>({ 1: '', 2: '' })
+  const [edfInputKey, setEdfInputKey] = useState<Record<number, number>>({ 1: 0, 2: 0 })
 
   if (loading) return <LoadingSpinner />
   if (error) return <ErrorMessage message={error} onRetry={refetch} />
@@ -77,6 +84,48 @@ export default function ParticipantDetailPage() {
     }
   }
 
+  async function handleDownloadAssignments() {
+    if (!participant) return
+    setDownloadingAssignments(true)
+    try {
+      await downloadFile(
+        `/export/assignments?participantId=${participant.id}`,
+        `naps_assignments_${participant.participant_code}.csv`
+      )
+    } catch {
+      alert('No assignment data to export')
+    } finally {
+      setDownloadingAssignments(false)
+    }
+  }
+
+  async function handleEdfUpload(day: 1 | 2) {
+    const file = edfFile[day]
+    if (!file || !participant) return
+    setEdfUploading((prev) => ({ ...prev, [day]: true }))
+    setEdfSuccess((prev) => ({ ...prev, [day]: '' }))
+    try {
+      const formData = new FormData()
+      formData.append('edf', file)
+      formData.append('labDay', String(day))
+      const res = await fetch(
+        `${API_URL}/labs/${labId}/participants/${participant.id}/sleep-data/upload`,
+        { method: 'POST', credentials: 'include', body: formData }
+      )
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new ApiError(res.status, body.error ?? 'Upload failed')
+      }
+      setEdfSuccess((prev) => ({ ...prev, [day]: file.name }))
+      setEdfFile((prev) => ({ ...prev, [day]: null }))
+      setEdfInputKey((prev) => ({ ...prev, [day]: prev[day] + 1 }))
+    } catch (err: any) {
+      alert(err.message ?? 'Upload failed')
+    } finally {
+      setEdfUploading((prev) => ({ ...prev, [day]: false }))
+    }
+  }
+
   const conditionForDay = (day: number) => {
     if (participant.condition_order === 0) return day === 1 ? 'Sleep' : 'Wake'
     return day === 1 ? 'Wake' : 'Sleep'
@@ -89,6 +138,9 @@ export default function ParticipantDetailPage() {
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn btn-primary" onClick={handleDownloadCsv} disabled={downloading}>
             {downloading ? 'Exporting...' : 'Download CSV'}
+          </button>
+          <button className="btn btn-outline" onClick={handleDownloadAssignments} disabled={downloadingAssignments}>
+            {downloadingAssignments ? 'Exporting...' : 'Download Image List'}
           </button>
           <Link to={`/labs/${labId}/participants`} className="btn btn-outline">
             Back to list
@@ -183,18 +235,42 @@ export default function ParticipantDetailPage() {
               </h3>
               {!isSleepDay ? (
                 <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Wake condition — no sleep data to enter</p>
-              ) : showSleepForm === day || existing ? (
-                <SleepDataForm
-                  labId={labId!}
-                  participantId={participant.id}
-                  labDay={day as 1 | 2}
-                  existing={existing}
-                  onSaved={() => { refetchSleep(); setShowSleepForm(null) }}
-                />
               ) : (
-                <button className="btn btn-outline btn-sm" onClick={() => setShowSleepForm(day as 1 | 2)}>
-                  Enter sleep data
-                </button>
+                <>
+                  {showSleepForm === day || existing ? (
+                    <SleepDataForm
+                      labId={labId!}
+                      participantId={participant.id}
+                      labDay={day as 1 | 2}
+                      existing={existing}
+                      onSaved={() => { refetchSleep(); setShowSleepForm(null) }}
+                    />
+                  ) : (
+                    <button className="btn btn-outline btn-sm" onClick={() => setShowSleepForm(day as 1 | 2)}>
+                      Enter sleep data
+                    </button>
+                  )}
+                  <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <input
+                      key={edfInputKey[day]}
+                      type="file"
+                      accept=".edf"
+                      onChange={(e) => setEdfFile((prev) => ({ ...prev, [day]: e.target.files?.[0] ?? null }))}
+                    />
+                    <button
+                      className="btn btn-outline btn-sm"
+                      disabled={!edfFile[day] || edfUploading[day]}
+                      onClick={() => handleEdfUpload(day as 1 | 2)}
+                    >
+                      {edfUploading[day] ? 'Uploading...' : 'Upload EDF'}
+                    </button>
+                    {edfSuccess[day] && (
+                      <span style={{ fontSize: '0.85rem', color: 'var(--color-success)' }}>
+                        Uploaded: {edfSuccess[day]}
+                      </span>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           )

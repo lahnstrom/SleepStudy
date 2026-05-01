@@ -104,4 +104,68 @@ router.get('/csv', requireAuth, async (req, res) => {
   res.send(csv)
 })
 
+router.get('/assignments', requireAuth, async (req, res) => {
+  const participantId = req.query.participantId ? Number(req.query.participantId) : null
+  if (!participantId) {
+    res.status(400).json({ error: 'participantId is required' })
+    return
+  }
+
+  // Lab users can only export their own participants
+  if (req.session.role === 'lab_user') {
+    const check = await pool.query(
+      'SELECT 1 FROM participants WHERE id = $1 AND lab_id = $2',
+      [participantId, req.session.labId]
+    )
+    if (check.rows.length === 0) {
+      res.status(403).json({ error: 'Access denied' })
+      return
+    }
+  }
+
+  const result = await pool.query(`
+    SELECT
+      i.filename AS "ImageFile",
+      INITCAP(i.emotion::text) AS "Emotion",
+      pia.lab_day AS "LabDay",
+      CASE
+        WHEN (p.condition_order = 0 AND pia.lab_day = 1)
+          OR (p.condition_order = 1 AND pia.lab_day = 2) THEN 'Sleep'
+        ELSE 'Wake'
+      END AS "Condition",
+      pia.image_role AS "ImageRole",
+      pia.presentation_position AS "PresentationPosition",
+      pia.test_position AS "TestPosition"
+    FROM participant_image_assignments pia
+    JOIN images i ON i.id = pia.image_id
+    JOIN participants p ON p.id = pia.participant_id
+    WHERE pia.participant_id = $1
+    ORDER BY pia.lab_day, pia.image_role, pia.presentation_position
+  `, [participantId])
+
+  if (result.rows.length === 0) {
+    res.status(404).json({ error: 'No assignments found for this participant' })
+    return
+  }
+
+  const columns = ['ImageFile', 'Emotion', 'LabDay', 'Condition', 'ImageRole', 'PresentationPosition', 'TestPosition']
+  const header = columns.join(',')
+  const rows = result.rows.map((row) =>
+    columns.map((col) => {
+      const val = row[col]
+      if (val === null || val === undefined) return ''
+      const str = String(val)
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`
+      }
+      return str
+    }).join(',')
+  )
+
+  const csv = [header, ...rows].join('\n')
+  res.setHeader('Content-Type', 'text/csv')
+  res.setHeader('Content-Disposition', `attachment; filename="naps_assignments_${participantId}.csv"`)
+  res.send(csv)
+})
+
 export default router

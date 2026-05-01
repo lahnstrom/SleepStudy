@@ -12,11 +12,13 @@ export default function ImageDisplay({ image }: { image: HTMLImageElement | null
   if (!image) return <div className="experiment-blank" />
 
   return (
-    <img
-      ref={imgRef}
-      className="experiment-image"
-      alt=""
-      src={image.src}
-    />
+    <div className="experiment-image-container">
+      <img
+        ref={imgRef}
+        className="experiment-image"
+        alt=""
+        src={image.src}
+      />
+    </div>
   )
 }

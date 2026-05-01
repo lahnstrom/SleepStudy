@@ -34,6 +34,49 @@ export default function AdminPage() {
   const { data: labs, refetch: refetchLabs } = useFetch<Lab[]>('/labs')
   const { data: users, refetch: refetchUsers } = useFetch<UserRow[]>('/admin/users')
   const { data: participants } = useFetch<ParticipantRow[]>('/admin/participants')
+  const { data: timingConfig, refetch: refetchTiming } = useFetch<Record<string, number>>('/config/timing')
+  const { data: timingPracticeConfig, refetch: refetchTimingPractice } = useFetch<Record<string, number>>('/config/timing-practice')
+
+  const TIMING_FIELDS = [
+    { key: 'fixationVisible', label: 'Fixation Visible (ms)' },
+    { key: 'fixationBlank', label: 'Fixation Blank (ms)' },
+    { key: 'imageDisplay', label: 'Image Display (ms)' },
+    { key: 'memoryTimeout', label: 'Memory Timeout (ms)' },
+    { key: 'postMemoryGap', label: 'Post Memory Gap (ms)' },
+    { key: 'ratingTimeout', label: 'Rating Timeout (ms)' },
+    { key: 'interRatingGap', label: 'Inter Rating Gap (ms)' },
+    { key: 'pauseDuration', label: 'Pause Duration (ms)' },
+    { key: 'pauseTrialIndex', label: 'Pause Trial Index' },
+  ]
+
+  const [timingDraft, setTimingDraft] = useState<Record<string, number> | null>(null)
+  const [timingPracticeDraft, setTimingPracticeDraft] = useState<Record<string, number> | null>(null)
+  const [timingSaveMsg, setTimingSaveMsg] = useState('')
+  const [timingPracticeSaveMsg, setTimingPracticeSaveMsg] = useState('')
+
+  async function handleSaveTiming(e: FormEvent) {
+    e.preventDefault()
+    setTimingSaveMsg('')
+    try {
+      await api('/config/timing', { method: 'PUT', body: JSON.stringify(timingDraft ?? timingConfig) })
+      setTimingSaveMsg('Saved.')
+      refetchTiming()
+    } catch (err: any) {
+      setTimingSaveMsg(`Error: ${err.message}`)
+    }
+  }
+
+  async function handleSaveTimingPractice(e: FormEvent) {
+    e.preventDefault()
+    setTimingPracticeSaveMsg('')
+    try {
+      await api('/config/timing-practice', { method: 'PUT', body: JSON.stringify(timingPracticeDraft ?? timingPracticeConfig) })
+      setTimingPracticeSaveMsg('Saved.')
+      refetchTimingPractice()
+    } catch (err: any) {
+      setTimingPracticeSaveMsg(`Error: ${err.message}`)
+    }
+  }
 
   // Create lab form
   const [labNumber, setLabNumber] = useState('')
@@ -201,7 +244,7 @@ export default function AdminPage() {
 
       {/* All Participants Section */}
       <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>All Participants</h2>
-      <div className="card">
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
         <table className="table">
           <thead>
             <tr><th>Code</th><th>Lab</th><th>Order</th><th>Sessions</th><th>Created</th></tr>
@@ -218,6 +261,52 @@ export default function AdminPage() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Timing Configuration Section */}
+      <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>Timing Configuration</h2>
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Real Session</h3>
+        <form onSubmit={handleSaveTiming} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.5rem 1rem' }}>
+          {TIMING_FIELDS.map((f) => (
+            <div key={f.key} className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">{f.label}</label>
+              <input
+                className="form-input"
+                type="number"
+                min="1"
+                value={(timingDraft ?? timingConfig)?.[f.key] ?? ''}
+                onChange={(e) => setTimingDraft({ ...(timingDraft ?? timingConfig ?? {}), [f.key]: Number(e.target.value) })}
+              />
+            </div>
+          ))}
+          <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <button className="btn btn-primary" type="submit">Save</button>
+            {timingSaveMsg && <span style={{ fontSize: '0.85rem', color: timingSaveMsg.startsWith('Error') ? 'var(--color-danger)' : 'var(--color-success)' }}>{timingSaveMsg}</span>}
+          </div>
+        </form>
+      </div>
+
+      <div className="card">
+        <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Practice Session</h3>
+        <form onSubmit={handleSaveTimingPractice} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.5rem 1rem' }}>
+          {TIMING_FIELDS.map((f) => (
+            <div key={f.key} className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">{f.label}</label>
+              <input
+                className="form-input"
+                type="number"
+                min="1"
+                value={(timingPracticeDraft ?? timingPracticeConfig)?.[f.key] ?? ''}
+                onChange={(e) => setTimingPracticeDraft({ ...(timingPracticeDraft ?? timingPracticeConfig ?? {}), [f.key]: Number(e.target.value) })}
+              />
+            </div>
+          ))}
+          <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <button className="btn btn-primary" type="submit">Save</button>
+            {timingPracticeSaveMsg && <span style={{ fontSize: '0.85rem', color: timingPracticeSaveMsg.startsWith('Error') ? 'var(--color-danger)' : 'var(--color-success)' }}>{timingPracticeSaveMsg}</span>}
+          </div>
+        </form>
       </div>
     </div>
   )

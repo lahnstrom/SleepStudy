@@ -42,6 +42,7 @@ export interface TrialEngineConfig {
   onTrialComplete: (trial: TrialData) => void
   onSessionComplete: (trials: TrialData[]) => void
   onPause: () => void
+  onRatingUpdate?: (phase: TrialPhase, value: number) => void
 }
 
 export class TrialEngine {
@@ -249,10 +250,12 @@ export class TrialEngine {
       const index = ic.ratingKeys.indexOf(key.code)
       this.valenceRating = index + 1
       this.valenceRtMs = rt
+      this.config.onRatingUpdate?.(phase, this.valenceRating)
     } else if (phase === TrialPhase.AROUSAL_RATING) {
       const index = ic.ratingKeys.indexOf(key.code)
       this.arousalRating = index + 1
       this.arousalRtMs = rt
+      this.config.onRatingUpdate?.(phase, this.arousalRating)
     } else if (phase === TrialPhase.MEMORY_JUDGMENT) {
       this.memoryResponse = key.code === ic.memoryOldKey ? 0 : 1
       this.memoryRtMs = rt
@@ -274,6 +277,14 @@ export class TrialEngine {
 
     const nextPhase = this.currentPhase()
     this.phaseStartTime = timestamp
+
+    if (
+      nextPhase === TrialPhase.VALENCE_RATING ||
+      nextPhase === TrialPhase.AROUSAL_RATING ||
+      nextPhase === TrialPhase.MEMORY_JUDGMENT
+    ) {
+      this.keyBuffer = []
+    }
 
     if (nextPhase === TrialPhase.IMAGE) {
       this.imageOnsetTime = timestamp

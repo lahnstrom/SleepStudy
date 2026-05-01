@@ -40,7 +40,7 @@ export default function PauseScreen({ duration, resumeKeyLabel, resumeKeyCode, o
       <div className="pause-hint">
         {remaining > 0
           ? 'Please wait...'
-          : <>Experimenter: press <strong>{resumeKeyLabel}</strong> to resume</>
+          : <>Press <strong>{resumeKeyLabel}</strong> to continue</>
         }
       </div>
     </div>

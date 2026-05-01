@@ -101,13 +101,18 @@ export default function CreateParticipantPage() {
 
           <div className="form-group">
             <label className="form-label" htmlFor="gender">Gender (optional)</label>
-            <input
+            <select
               id="gender"
               className="form-input"
               value={gender}
               onChange={(e) => setGender(e.target.value)}
-              placeholder="e.g. F, M, Non-binary"
-            />
+            >
+              <option value="">— (prefer not to say)</option>
+              <option value="Man">Man</option>
+              <option value="Kvinna">Kvinna</option>
+              <option value="Non-binary">Non-binary</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
 
           <div className="form-group">

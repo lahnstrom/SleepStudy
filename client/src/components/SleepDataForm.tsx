@@ -23,7 +23,7 @@ interface SleepDataFormProps {
 }
 
 const FIELDS = [
-  { key: 'totalSleepMin', label: 'Total Sleep (min)', dbKey: 'total_sleep_min' },
+  { key: 'totalSleepMin', label: 'Total Sleep Time (min)', dbKey: 'total_sleep_min' },
   { key: 'n1Min', label: 'N1 (min)', dbKey: 'n1_min' },
   { key: 'n2Min', label: 'N2 (min)', dbKey: 'n2_min' },
   { key: 'n3Min', label: 'N3 (min)', dbKey: 'n3_min' },

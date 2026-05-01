@@ -13,7 +13,7 @@ import {
 import { saveSession, updateSessionStatus, getTrials as idbGetTrials } from '../../lib/indexedDB'
 import { detectRefreshRate } from '../../experiment/refreshRateDetector'
 import { preloadImages, createPracticeImages } from '../../experiment/imagePreloader'
-import { computeTimingAudit, computePracticeMeanDeviation } from '../../experiment/timingAudit'
+import { computeTimingAudit } from '../../experiment/timingAudit'
 import { useTrialEngine } from '../../hooks/useTrialEngine'
 import TrialDisplay from './TrialDisplay'
 import PauseScreen from './PauseScreen'
@@ -33,6 +33,7 @@ interface ExperimentRunnerProps {
 interface State {
   runnerState: RunnerState
   timingConfig: TimingConfig | null
+  timingPracticeConfig: TimingConfig | null
   inputConfig: InputConfig
   assignments: ImageAssignment[]
   images: Map<number, HTMLImageElement>
@@ -41,20 +42,18 @@ interface State {
   refreshRate: number
   frameInterval: number
   loadProgress: { loaded: number; total: number }
-  practiceMeanDeviation: number
   syncStatus: 'syncing' | 'synced' | 'error' | 'pending'
   error: string | null
 }
 
 type Action =
   | { type: 'SET_STATE'; runnerState: RunnerState }
-  | { type: 'CONFIG_LOADED'; timingConfig: TimingConfig; inputConfig: InputConfig }
+  | { type: 'CONFIG_LOADED'; timingConfig: TimingConfig; timingPracticeConfig: TimingConfig | null; inputConfig: InputConfig }
   | { type: 'ASSIGNMENTS_LOADED'; assignments: ImageAssignment[] }
   | { type: 'REFRESH_DETECTED'; refreshRate: number; frameInterval: number }
   | { type: 'SESSION_CREATED'; sessionId: string }
   | { type: 'LOAD_PROGRESS'; loaded: number; total: number }
   | { type: 'IMAGES_LOADED'; images: Map<number, HTMLImageElement> }
-  | { type: 'PRACTICE_DONE'; meanDeviation: number }
   | { type: 'SYNC_STATUS'; syncStatus: State['syncStatus'] }
   | { type: 'ERROR'; error: string }
 
@@ -63,7 +62,7 @@ function reducer(state: State, action: Action): State {
     case 'SET_STATE':
       return { ...state, runnerState: action.runnerState }
     case 'CONFIG_LOADED':
-      return { ...state, timingConfig: action.timingConfig, inputConfig: action.inputConfig }
+      return { ...state, timingConfig: action.timingConfig, timingPracticeConfig: action.timingPracticeConfig, inputConfig: action.inputConfig }
     case 'ASSIGNMENTS_LOADED':
       return { ...state, assignments: action.assignments }
     case 'REFRESH_DETECTED':
@@ -74,8 +73,6 @@ function reducer(state: State, action: Action): State {
       return { ...state, loadProgress: { loaded: action.loaded, total: action.total } }
     case 'IMAGES_LOADED':
       return { ...state, images: action.images, practiceImages: createPracticeImages(6) }
-    case 'PRACTICE_DONE':
-      return { ...state, practiceMeanDeviation: action.meanDeviation, runnerState: 'PRACTICE_COMPLETE' }
     case 'SYNC_STATUS':
       return { ...state, syncStatus: action.syncStatus }
     case 'ERROR':
@@ -99,6 +96,7 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
   const [state, dispatch] = useReducer(reducer, {
     runnerState: 'LOADING_CONFIG',
     timingConfig: null,
+    timingPracticeConfig: null,
     inputConfig: DEFAULT_INPUT_CONFIG,
     assignments: [],
     images: new Map(),
@@ -107,7 +105,6 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
     refreshRate: 60,
     frameInterval: 16.67,
     loadProgress: { loaded: 0, total: 0 },
-    practiceMeanDeviation: 0,
     syncStatus: 'pending',
     error: null,
   })
@@ -125,11 +122,12 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
     async function init() {
       try {
         // 1. Fetch configs
-        const [timingConfig, inputConfig] = await Promise.all([
+        const [timingConfig, timingPracticeConfig, inputConfig] = await Promise.all([
           api<TimingConfig>('/config/timing'),
+          api<TimingConfig>('/config/timing-practice').catch(() => null),
           api<InputConfig>('/config/input').catch(() => DEFAULT_INPUT_CONFIG),
         ])
-        dispatch({ type: 'CONFIG_LOADED', timingConfig, inputConfig })
+        dispatch({ type: 'CONFIG_LOADED', timingConfig, timingPracticeConfig, inputConfig })
 
         // 2. Fetch assignments
         const assignments = await api<ImageAssignment[]>(
@@ -196,22 +194,21 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
     dispatch({ type: 'SET_STATE', runnerState: 'PRACTICE_RUNNING' })
     practiceEngine.startEngine({
       sessionType,
-      timingConfig: state.timingConfig,
+      timingConfig: state.timingPracticeConfig ?? state.timingConfig,
       inputConfig: state.inputConfig,
       assignments: PRACTICE_ASSIGNMENTS,
       images: state.practiceImages,
       frameInterval: state.frameInterval,
       mode: 'practice',
     })
-  }, [state.timingConfig, state.inputConfig, state.practiceImages, state.frameInterval, sessionType, practiceEngine])
+  }, [state.timingConfig, state.timingPracticeConfig, state.inputConfig, state.practiceImages, state.frameInterval, sessionType, practiceEngine])
 
-  // Practice complete → compute QA
+  // Practice complete → transition to PRACTICE_COMPLETE
   useEffect(() => {
-    if (practiceEngine.isComplete && state.runnerState === 'PRACTICE_RUNNING' && state.timingConfig) {
-      const meanDev = computePracticeMeanDeviation(practiceEngine.completedTrials, state.timingConfig)
-      dispatch({ type: 'PRACTICE_DONE', meanDeviation: meanDev })
+    if (practiceEngine.isComplete && state.runnerState === 'PRACTICE_RUNNING') {
+      dispatch({ type: 'SET_STATE', runnerState: 'PRACTICE_COMPLETE' })
     }
-  }, [practiceEngine.isComplete, state.runnerState, state.timingConfig, practiceEngine.completedTrials])
+  }, [practiceEngine.isComplete, state.runnerState])
 
   // Start real session
   const startReal = useCallback(() => {
@@ -317,7 +314,13 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
         }
       }
 
-      // All retries failed — save to pendingSync for manual recovery
+      // All retries failed — best-effort complete so canLaunch() unblocks next session
+      try {
+        await api(`/sessions/${state.sessionId}/complete`, {
+          method: 'PATCH',
+          body: JSON.stringify({ timingMetadata }),
+        })
+      } catch { /* best-effort */ }
       console.error('All sync attempts failed, data preserved in IndexedDB')
       dispatch({ type: 'SYNC_STATUS', syncStatus: 'error' })
       dispatch({ type: 'SET_STATE', runnerState: 'DONE' })
@@ -360,13 +363,17 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
             inputConfig={state.inputConfig}
             trialIndex={practiceEngine.trialIndex}
             totalTrials={PRACTICE_ASSIGNMENTS.length}
+            selectedRating={
+              practiceEngine.phase === TrialPhase.VALENCE_RATING ? practiceEngine.currentValenceRating :
+              practiceEngine.phase === TrialPhase.AROUSAL_RATING ? practiceEngine.currentArousalRating : null
+            }
           />
         )
       }
       return <div className="experiment-blank" />
 
     case 'PRACTICE_COMPLETE':
-      return <PracticeComplete meanDeviation={state.practiceMeanDeviation} onProceed={startReal} />
+      return <PracticeComplete onProceed={startReal} />
 
     case 'REAL_RUNNING':
       if (realEngine.isPaused && state.timingConfig) {
@@ -387,6 +394,10 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
             inputConfig={state.inputConfig}
             trialIndex={realEngine.trialIndex}
             totalTrials={activeAssignments.length}
+            selectedRating={
+              realEngine.phase === TrialPhase.VALENCE_RATING ? realEngine.currentValenceRating :
+              realEngine.phase === TrialPhase.AROUSAL_RATING ? realEngine.currentArousalRating : null
+            }
           />
         )
       }
