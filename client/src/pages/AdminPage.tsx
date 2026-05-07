@@ -36,6 +36,7 @@ export default function AdminPage() {
   const { data: participants } = useFetch<ParticipantRow[]>('/admin/participants')
   const { data: timingConfig, refetch: refetchTiming } = useFetch<Record<string, number>>('/config/timing')
   const { data: timingPracticeConfig, refetch: refetchTimingPractice } = useFetch<Record<string, number>>('/config/timing-practice')
+  const { data: experimentMode, refetch: refetchMode } = useFetch<{ neutralOnly: boolean }>('/config/experiment-mode')
 
   const TIMING_FIELDS = [
     { key: 'fixationVisible', label: 'Fixation Visible (ms)' },
@@ -48,6 +49,20 @@ export default function AdminPage() {
     { key: 'pauseDuration', label: 'Pause Duration (ms)' },
     { key: 'pauseTrialIndex', label: 'Pause Trial Index' },
   ]
+
+  const [neutralOnly, setNeutralOnly] = useState<boolean | null>(null)
+  const [modeSaveMsg, setModeSaveMsg] = useState('')
+
+  async function handleSaveMode() {
+    setModeSaveMsg('')
+    try {
+      await api('/config/experiment-mode', { method: 'PUT', body: JSON.stringify({ neutralOnly: neutralOnly ?? experimentMode?.neutralOnly ?? false }) })
+      setModeSaveMsg('Saved.')
+      refetchMode()
+    } catch (err: any) {
+      setModeSaveMsg(`Error: ${err.message}`)
+    }
+  }
 
   const [timingDraft, setTimingDraft] = useState<Record<string, number> | null>(null)
   const [timingPracticeDraft, setTimingPracticeDraft] = useState<Record<string, number> | null>(null)
@@ -261,6 +276,39 @@ export default function AdminPage() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Experiment Mode Section */}
+      <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>Experiment Mode</h2>
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        {(() => {
+          const currentNeutralOnly = neutralOnly ?? experimentMode?.neutralOnly ?? false
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={currentNeutralOnly}
+                  onChange={(e) => setNeutralOnly(e.target.checked)}
+                  style={{ width: 16, height: 16 }}
+                />
+                <span style={{ fontWeight: 500 }}>Neutral-only mode</span>
+                {currentNeutralOnly && (
+                  <span className="badge" style={{ background: 'var(--color-warning, #f59e0b)', color: '#fff', fontSize: '0.75rem', padding: '0.15rem 0.5rem', borderRadius: 4 }}>
+                    Active
+                  </span>
+                )}
+              </label>
+              <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', margin: 0 }}>
+                When enabled, new participants will be assigned only neutral images. Use for piloting before ethics approval for negative stimuli. Existing participants are unaffected.
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <button className="btn btn-primary" onClick={handleSaveMode}>Save</button>
+                {modeSaveMsg && <span style={{ fontSize: '0.85rem', color: modeSaveMsg.startsWith('Error') ? 'var(--color-danger)' : 'var(--color-success)' }}>{modeSaveMsg}</span>}
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Timing Configuration Section */}

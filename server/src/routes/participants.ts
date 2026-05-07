@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { pool } from '../db.js'
 import { requireLabAccess } from '../middleware/auth.js'
+import { generateImageAssignments, getNeutralOnlyMode } from '../services/imageAssignments.js'
 
 const router = Router()
 
@@ -33,22 +34,31 @@ router.post('/:labId/participants', requireLabAccess('labId'), async (req, res) 
 
   const { participantCode, conditionOrder, age, gender, language } = parsed.data
 
+  const client = await pool.connect()
   try {
-    const result = await pool.query(
+    await client.query('BEGIN')
+    const participantResult = await client.query(
       'SELECT * FROM create_participant($1, $2, $3, $4, $5, $6)',
       [labId, participantCode, conditionOrder, age ?? null, gender ?? null, language]
     )
-    res.status(201).json(result.rows[0])
+    const participant = participantResult.rows[0]
+    const neutralOnly = await getNeutralOnlyMode(client)
+    await generateImageAssignments(client, participant.id, neutralOnly)
+    await client.query('COMMIT')
+    res.status(201).json(participant)
   } catch (err: any) {
+    await client.query('ROLLBACK')
     if (err.code === '23505') {
       res.status(409).json({ error: 'A participant with this code already exists in this lab' })
       return
     }
-    if (err.code === 'P0001') {
+    if (err.message?.startsWith('Need at least')) {
       res.status(400).json({ error: err.message })
       return
     }
     throw err
+  } finally {
+    client.release()
   }
 })
 

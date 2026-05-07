@@ -69,6 +69,21 @@ router.put('/timing-practice', requireAdmin, async (req, res) => {
   res.json(result.rows[0].value)
 })
 
+router.get('/experiment-mode', requireAuth, async (_req, res) => {
+  const result = await pool.query("SELECT value FROM config WHERE key = 'neutral_only_mode'")
+  res.json({ neutralOnly: result.rows[0]?.value === true })
+})
+
+router.put('/experiment-mode', requireAdmin, async (req, res) => {
+  const parsed = z.object({ neutralOnly: z.boolean() }).safeParse(req.body)
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid input' })
+    return
+  }
+  await pool.query("UPDATE config SET value = $1 WHERE key = 'neutral_only_mode'", [parsed.data.neutralOnly])
+  res.json({ neutralOnly: parsed.data.neutralOnly })
+})
+
 router.get('/input', requireAuth, async (_req, res) => {
   const result = await pool.query("SELECT value FROM config WHERE key = 'input'")
   if (result.rows.length === 0) {
