@@ -259,7 +259,7 @@ BEGIN
     SELECT array_agg(id ORDER BY random()) INTO v_neu_ids
     FROM images WHERE emotion = 'neutral';
 
-    IF array_length(v_neg_ids, 1) < 160 OR array_length(v_neu_ids, 1) < 160 THEN
+    IF coalesce(array_length(v_neg_ids, 1), 0) < 160 OR coalesce(array_length(v_neu_ids, 1), 0) < 160 THEN
         RAISE EXCEPTION 'Need at least 160 negative and 160 neutral images';
     END IF;
 
