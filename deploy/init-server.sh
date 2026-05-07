@@ -40,7 +40,6 @@ echo "Server built"
 
 # Migrations + seed
 npx tsx src/migrate.ts
-psql "postgresql://naps:${DB_PASSWORD}@localhost:5432/naps" < /opt/naps/server/migrations/004_seed_input_config.sql
 npx tsx src/seed.ts demoPassword123
 echo "Migrations and seed complete"
 
