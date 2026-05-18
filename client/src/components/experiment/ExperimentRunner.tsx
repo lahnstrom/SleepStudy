@@ -12,7 +12,7 @@ import {
 } from '../../lib/experimentTypes'
 import { saveSession, updateSessionStatus, getTrials as idbGetTrials } from '../../lib/indexedDB'
 import { detectRefreshRate } from '../../experiment/refreshRateDetector'
-import { preloadImages, createPracticeImages } from '../../experiment/imagePreloader'
+import { preloadImages, preloadPracticeImages } from '../../experiment/imagePreloader'
 import { computeTimingAudit } from '../../experiment/timingAudit'
 import { useTrialEngine } from '../../hooks/useTrialEngine'
 import TrialDisplay from './TrialDisplay'
@@ -37,6 +37,7 @@ interface State {
   timingPracticeConfig: TimingConfig | null
   inputConfig: InputConfig
   assignments: ImageAssignment[]
+  practiceAssignments: ImageAssignment[]
   images: Map<number, HTMLImageElement>
   practiceImages: Map<number, HTMLImageElement>
   sessionId: string
@@ -51,6 +52,7 @@ type Action =
   | { type: 'SET_STATE'; runnerState: RunnerState }
   | { type: 'CONFIG_LOADED'; timingConfig: TimingConfig; timingPracticeConfig: TimingConfig | null; inputConfig: InputConfig }
   | { type: 'ASSIGNMENTS_LOADED'; assignments: ImageAssignment[] }
+  | { type: 'PRACTICE_LOADED'; practiceAssignments: ImageAssignment[]; practiceImages: Map<number, HTMLImageElement> }
   | { type: 'REFRESH_DETECTED'; refreshRate: number; frameInterval: number }
   | { type: 'SESSION_CREATED'; sessionId: string }
   | { type: 'LOAD_PROGRESS'; loaded: number; total: number }
@@ -66,6 +68,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, timingConfig: action.timingConfig, timingPracticeConfig: action.timingPracticeConfig, inputConfig: action.inputConfig }
     case 'ASSIGNMENTS_LOADED':
       return { ...state, assignments: action.assignments }
+    case 'PRACTICE_LOADED':
+      return { ...state, practiceAssignments: action.practiceAssignments, practiceImages: action.practiceImages }
     case 'REFRESH_DETECTED':
       return { ...state, refreshRate: action.refreshRate, frameInterval: action.frameInterval }
     case 'SESSION_CREATED':
@@ -73,7 +77,7 @@ function reducer(state: State, action: Action): State {
     case 'LOAD_PROGRESS':
       return { ...state, loadProgress: { loaded: action.loaded, total: action.total } }
     case 'IMAGES_LOADED':
-      return { ...state, images: action.images, practiceImages: createPracticeImages(6) }
+      return { ...state, images: action.images }
     case 'SYNC_STATUS':
       return { ...state, syncStatus: action.syncStatus }
     case 'ERROR':
@@ -83,15 +87,6 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-const PRACTICE_ASSIGNMENTS: ImageAssignment[] = Array.from({ length: 6 }, (_, i) => ({
-  id: -(i + 1),
-  image_id: -(i + 1),
-  lab_day: 1,
-  image_role: i < 3 ? 'encoding_test1_target' as const : 'test1_foil' as const,
-  presentation_position: i + 1,
-  filename: `practice_${i + 1}`,
-  emotion: 'neutral' as const,
-}))
 
 export default function ExperimentRunner({ participantId, labDay, sessionType, maxTrials, skipPractice, apiPrefix = '' }: ExperimentRunnerProps) {
   const [state, dispatch] = useReducer(reducer, {
@@ -100,6 +95,7 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
     timingPracticeConfig: null,
     inputConfig: DEFAULT_INPUT_CONFIG,
     assignments: [],
+    practiceAssignments: [],
     images: new Map(),
     practiceImages: new Map(),
     sessionId: '',
@@ -182,12 +178,17 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
           currentTrialIndex: 0,
         })
 
-        // 5. Preload images
+        // 5. Preload images (real session + practice in parallel)
         dispatch({ type: 'SET_STATE', runnerState: 'LOADING_IMAGES' })
-        const images = await preloadImages(trimmed, (loaded, total) => {
-          dispatch({ type: 'LOAD_PROGRESS', loaded, total })
-        })
+        const practiceAssignments = await api<ImageAssignment[]>('/practice-images')
+        const [images, practiceImages] = await Promise.all([
+          preloadImages(trimmed, (loaded, total) => {
+            dispatch({ type: 'LOAD_PROGRESS', loaded, total })
+          }),
+          preloadPracticeImages(practiceAssignments),
+        ])
         dispatch({ type: 'IMAGES_LOADED', images })
+        dispatch({ type: 'PRACTICE_LOADED', practiceAssignments, practiceImages })
 
         // 6. Ready for practice
         dispatch({ type: 'SET_STATE', runnerState: skipPractice ? 'PRACTICE_COMPLETE' : 'PRACTICE_INTRO' })
@@ -207,12 +208,12 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
       sessionType,
       timingConfig: state.timingPracticeConfig ?? state.timingConfig,
       inputConfig: state.inputConfig,
-      assignments: PRACTICE_ASSIGNMENTS,
+      assignments: state.practiceAssignments,
       images: state.practiceImages,
       frameInterval: state.frameInterval,
       mode: 'practice',
     })
-  }, [state.timingConfig, state.timingPracticeConfig, state.inputConfig, state.practiceImages, state.frameInterval, sessionType, practiceEngine])
+  }, [state.timingConfig, state.timingPracticeConfig, state.inputConfig, state.practiceAssignments, state.practiceImages, state.frameInterval, sessionType, practiceEngine])
 
   // Practice complete → transition to PRACTICE_COMPLETE
   useEffect(() => {
@@ -342,7 +343,7 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
 
   // Determine which engine is active
   const activeEngine = state.runnerState === 'PRACTICE_RUNNING' ? practiceEngine : realEngine
-  const activeAssignments = state.runnerState === 'PRACTICE_RUNNING' ? PRACTICE_ASSIGNMENTS : state.assignments
+  const activeAssignments = state.runnerState === 'PRACTICE_RUNNING' ? state.practiceAssignments : state.assignments
 
   // Render
   switch (state.runnerState) {
@@ -373,7 +374,7 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
             currentImage={practiceEngine.getCurrentImage()}
             inputConfig={state.inputConfig}
             trialIndex={practiceEngine.trialIndex}
-            totalTrials={PRACTICE_ASSIGNMENTS.length}
+            totalTrials={state.practiceAssignments.length}
             selectedRating={
               practiceEngine.phase === TrialPhase.VALENCE_RATING ? practiceEngine.currentValenceRating :
               practiceEngine.phase === TrialPhase.AROUSAL_RATING ? practiceEngine.currentArousalRating : null

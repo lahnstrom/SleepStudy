@@ -104,11 +104,20 @@ export async function getNeutralOnlyMode(client: PoolClient): Promise<boolean> {
   return result.rows[0]?.value === true
 }
 
+const PRACTICE_IMAGE_COUNT = 6
+
 export async function generateImageAssignments(
   client: PoolClient,
   participantId: number,
   neutralOnly: boolean
 ): Promise<void> {
+  // Reserve the lowest-ID neutral images for practice — exclude them from the assignment pool
+  const practiceRes = await client.query<{ id: number }>(
+    'SELECT id FROM images WHERE emotion = $1 ORDER BY id ASC LIMIT $2',
+    ['neutral', PRACTICE_IMAGE_COUNT]
+  )
+  const practiceIds = new Set(practiceRes.rows.map(r => r.id))
+
   let negPool: Img[] = []
   let neuPool: Img[]
 
@@ -116,23 +125,25 @@ export async function generateImageAssignments(
     const { rows } = await client.query<{ id: number }>(
       "SELECT id FROM images WHERE emotion = 'neutral'"
     )
-    if (rows.length < 320) {
-      throw new Error(`Need at least 320 neutral images for neutral-only mode, have ${rows.length}`)
+    const available = rows.filter(r => !practiceIds.has(r.id))
+    if (available.length < 320) {
+      throw new Error(`Need at least 320 neutral images for neutral-only mode, have ${available.length}`)
     }
-    neuPool = shuffle(rows.map(r => ({ id: r.id, emotion: 'neutral' as const })))
+    neuPool = shuffle(available.map(r => ({ id: r.id, emotion: 'neutral' as const })))
   } else {
     const [negRes, neuRes] = await Promise.all([
       client.query<{ id: number }>("SELECT id FROM images WHERE emotion = 'negative'"),
       client.query<{ id: number }>("SELECT id FROM images WHERE emotion = 'neutral'"),
     ])
+    const availableNeu = neuRes.rows.filter(r => !practiceIds.has(r.id))
     if (negRes.rows.length < 160) {
       throw new Error(`Need at least 160 negative images, have ${negRes.rows.length}`)
     }
-    if (neuRes.rows.length < 160) {
-      throw new Error(`Need at least 160 neutral images, have ${neuRes.rows.length}`)
+    if (availableNeu.length < 160) {
+      throw new Error(`Need at least 160 neutral images, have ${availableNeu.length}`)
     }
     negPool = shuffle(negRes.rows.map(r => ({ id: r.id, emotion: 'negative' as const })))
-    neuPool = shuffle(neuRes.rows.map(r => ({ id: r.id, emotion: 'neutral' as const })))
+    neuPool = shuffle(availableNeu.map(r => ({ id: r.id, emotion: 'neutral' as const })))
   }
 
   for (const day of [1, 2] as const) {
