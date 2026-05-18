@@ -13,6 +13,8 @@ import NotFoundPage from './pages/NotFoundPage'
 import ExperimentPage from './pages/ExperimentPage'
 import DataExportPage from './pages/DataExportPage'
 import AdminPage from './pages/AdminPage'
+import PilotPage from './pages/PilotPage'
+import PilotExperimentPage from './pages/PilotExperimentPage'
 
 export default function App() {
   return (
@@ -34,6 +36,8 @@ export default function App() {
               </Route>
               <Route path="/experiment/:participantId/:labDay/:sessionType" element={<ExperimentPage />} />
             </Route>
+            <Route path="/pilot" element={<PilotPage />} />
+            <Route path="/pilot-experiment/:participantId/:labDay/:sessionType" element={<PilotExperimentPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </LabProvider>

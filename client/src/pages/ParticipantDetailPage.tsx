@@ -60,6 +60,7 @@ export default function ParticipantDetailPage() {
   const [showQForm, setShowQForm] = useState<1 | 2 | null>(null)
   const [downloading, setDownloading] = useState(false)
   const [downloadingAssignments, setDownloadingAssignments] = useState(false)
+  const [downloadingSession, setDownloadingSession] = useState<string | null>(null)
   const [edfFile, setEdfFile] = useState<Record<number, File | null>>({ 1: null, 2: null })
   const [edfUploading, setEdfUploading] = useState<Record<number, boolean>>({ 1: false, 2: false })
   const [edfSuccess, setEdfSuccess] = useState<Record<number, string>>({ 1: '', 2: '' })
@@ -96,6 +97,22 @@ export default function ParticipantDetailPage() {
       alert('No assignment data to export')
     } finally {
       setDownloadingAssignments(false)
+    }
+  }
+
+  async function handleDownloadSessionCsv(day: number, sessionType: string) {
+    if (!participant) return
+    const key = `${day}-${sessionType}`
+    setDownloadingSession(key)
+    try {
+      await downloadFile(
+        `/export/csv?participantId=${participant.id}&labDay=${day}&sessionType=${sessionType}`,
+        `naps_${participant.participant_code}_day${day}_${sessionType}.csv`
+      )
+    } catch {
+      alert('No completed trial data for this session')
+    } finally {
+      setDownloadingSession(null)
     }
   }
 
@@ -204,6 +221,16 @@ export default function ParticipantDetailPage() {
                       {new Date(session.completedAt).toLocaleString()}
                     </div>
                   )}
+                  {session?.completedAt && (
+                    <button
+                      className="btn btn-outline btn-sm"
+                      style={{ marginTop: '0.4rem', fontSize: '0.75rem' }}
+                      disabled={downloadingSession === `${day}-${type}`}
+                      onClick={() => handleDownloadSessionCsv(day, type)}
+                    >
+                      {downloadingSession === `${day}-${type}` ? '…' : '↓ CSV'}
+                    </button>
+                  )}
                   {launchable && (
                     <button
                       className="btn btn-primary btn-sm"
@@ -233,9 +260,7 @@ export default function ParticipantDetailPage() {
                 Day {day} — {condition}
                 {existing && <span className="badge badge-complete" style={{ marginLeft: '0.5rem' }}>Entered</span>}
               </h3>
-              {!isSleepDay ? (
-                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Wake condition — no sleep data to enter</p>
-              ) : (
+              {isSleepDay && (
                 <>
                   {showSleepForm === day || existing ? (
                     <SleepDataForm
@@ -250,28 +275,28 @@ export default function ParticipantDetailPage() {
                       Enter sleep data
                     </button>
                   )}
-                  <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <input
-                      key={edfInputKey[day]}
-                      type="file"
-                      accept=".edf"
-                      onChange={(e) => setEdfFile((prev) => ({ ...prev, [day]: e.target.files?.[0] ?? null }))}
-                    />
-                    <button
-                      className="btn btn-outline btn-sm"
-                      disabled={!edfFile[day] || edfUploading[day]}
-                      onClick={() => handleEdfUpload(day as 1 | 2)}
-                    >
-                      {edfUploading[day] ? 'Uploading...' : 'Upload EDF'}
-                    </button>
-                    {edfSuccess[day] && (
-                      <span style={{ fontSize: '0.85rem', color: 'var(--color-success)' }}>
-                        Uploaded: {edfSuccess[day]}
-                      </span>
-                    )}
-                  </div>
                 </>
               )}
+              <div style={{ marginTop: isSleepDay ? '0.75rem' : 0, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <input
+                  key={edfInputKey[day]}
+                  type="file"
+                  accept=".edf"
+                  onChange={(e) => setEdfFile((prev) => ({ ...prev, [day]: e.target.files?.[0] ?? null }))}
+                />
+                <button
+                  className="btn btn-outline btn-sm"
+                  disabled={!edfFile[day] || edfUploading[day]}
+                  onClick={() => handleEdfUpload(day as 1 | 2)}
+                >
+                  {edfUploading[day] ? 'Uploading...' : 'Upload EDF'}
+                </button>
+                {edfSuccess[day] && (
+                  <span style={{ fontSize: '0.85rem', color: 'var(--color-success)' }}>
+                    Uploaded: {edfSuccess[day]}
+                  </span>
+                )}
+              </div>
             </div>
           )
         })}

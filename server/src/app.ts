@@ -17,6 +17,7 @@ import imageRoutes from './routes/images.js'
 import exportRoutes from './routes/export.js'
 import sleepDataRoutes from './routes/sleepData.js'
 import questionnaireRoutes from './routes/questionnaires.js'
+import pilotRoutes from './routes/pilot.js'
 import './types.js'
 
 const PgStore = connectPgSimple(session)
@@ -62,6 +63,7 @@ app.use('/api/images', imageRoutes)
 app.use('/api/export', exportRoutes)
 app.use('/api/labs', sleepDataRoutes)
 app.use('/api/labs', questionnaireRoutes)
+app.use('/api/pilot', pilotRoutes)
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' })

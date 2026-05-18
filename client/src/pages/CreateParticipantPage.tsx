@@ -87,7 +87,7 @@ export default function CreateParticipantPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="age">Age (optional)</label>
+            <label className="form-label" htmlFor="age">Age</label>
             <input
               id="age"
               className="form-input"
@@ -100,7 +100,7 @@ export default function CreateParticipantPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="gender">Gender (optional)</label>
+            <label className="form-label" htmlFor="gender">Gender</label>
             <select
               id="gender"
               className="form-input"
@@ -108,8 +108,8 @@ export default function CreateParticipantPage() {
               onChange={(e) => setGender(e.target.value)}
             >
               <option value="">— (prefer not to say)</option>
-              <option value="Man">Man</option>
-              <option value="Kvinna">Kvinna</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
               <option value="Non-binary">Non-binary</option>
               <option value="Other">Other</option>
             </select>

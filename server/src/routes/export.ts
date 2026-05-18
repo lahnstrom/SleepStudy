@@ -23,13 +23,25 @@ router.get('/csv', requireAuth, async (req, res) => {
     participantFilter = `AND p.id = $${params.length}`
   }
 
+  let sessionTypeFilter = ''
+  if (req.query.sessionType) {
+    params.push(String(req.query.sessionType))
+    sessionTypeFilter = `AND s.session_type = $${params.length}`
+  }
+
+  let labDayFilter = ''
+  if (req.query.labDay) {
+    const labDayNum = parseInt(String(req.query.labDay), 10)
+    if (isNaN(labDayNum)) {
+      res.status(400).json({ error: 'Invalid labDay parameter' })
+      return
+    }
+    params.push(labDayNum)
+    labDayFilter = `AND s.lab_day = $${params.length}`
+  }
+
   const query = `
     SELECT
-      t.trial_number AS "TrialNumber",
-      i.filename AS "ImageFile",
-      INITCAP(i.emotion::text) AS "Emotion",
-      t.valence_rating AS "ValenceRating",
-      t.arousal_rating AS "ArousalRating",
       p.participant_code AS "ParticipantID",
       l.lab_number AS "LabNumber",
       s.lab_day AS "LabDay",
@@ -41,13 +53,18 @@ router.get('/csv', requireAuth, async (req, res) => {
       CASE s.condition
         WHEN 'wake' THEN 0
         WHEN 'sleep' THEN 1
-      END AS "WakeSleep",
+      END AS "Condition",
       p.condition_order AS "Order",
       p.age AS "Age",
       p.gender AS "Gender",
+      t.trial_number AS "TrialNumber",
+      i.filename AS "ImageFile",
+      INITCAP(i.emotion::text) AS "Emotion",
       t.target_foil AS "TargetFoil",
       t.memory_response AS "Response",
       t.correct AS "Correct",
+      t.valence_rating AS "ValenceRating",
+      t.arousal_rating AS "ArousalRating",
       t.valence_rt_ms AS "ValenceRT",
       t.arousal_rt_ms AS "ArousalRT",
       t.memory_rt_ms AS "MemoryRT"
@@ -59,6 +76,8 @@ router.get('/csv', requireAuth, async (req, res) => {
     WHERE s.completed_at IS NOT NULL
       ${labFilter}
       ${participantFilter}
+      ${sessionTypeFilter}
+      ${labDayFilter}
     ORDER BY p.id, s.lab_day, s.session_type, t.trial_number
   `
 
@@ -71,10 +90,10 @@ router.get('/csv', requireAuth, async (req, res) => {
 
   // Build CSV
   const columns = [
-    'TrialNumber', 'ImageFile', 'Emotion', 'ValenceRating', 'ArousalRating',
-    'ParticipantID', 'LabNumber', 'LabDay', 'Session', 'WakeSleep', 'Order',
-    'Age', 'Gender', 'TargetFoil', 'Response', 'Correct',
-    'ValenceRT', 'ArousalRT', 'MemoryRT',
+    'ParticipantID', 'LabNumber', 'LabDay', 'Session', 'Condition', 'Order',
+    'Age', 'Gender', 'TrialNumber', 'ImageFile', 'Emotion',
+    'TargetFoil', 'Response', 'Correct',
+    'ValenceRating', 'ArousalRating', 'ValenceRT', 'ArousalRT', 'MemoryRT',
   ]
 
   const header = columns.join(',')
@@ -93,11 +112,15 @@ router.get('/csv', requireAuth, async (req, res) => {
 
   const csv = [header, ...rows].join('\n')
 
-  const filename = req.query.participantId
-    ? `naps_participant_${req.query.participantId}.csv`
-    : req.query.labId
-      ? `naps_lab_${req.query.labId}.csv`
-      : 'naps_all_data.csv'
+  let filename = 'naps_all_data.csv'
+  if (req.query.participantId) {
+    const parts = [`naps_p${req.query.participantId}`]
+    if (req.query.labDay) parts.push(`day${req.query.labDay}`)
+    if (req.query.sessionType) parts.push(String(req.query.sessionType))
+    filename = `${parts.join('_')}.csv`
+  } else if (req.query.labId) {
+    filename = `naps_lab_${req.query.labId}.csv`
+  }
 
   res.setHeader('Content-Type', 'text/csv')
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)

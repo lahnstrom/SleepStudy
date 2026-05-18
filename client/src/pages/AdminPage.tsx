@@ -43,7 +43,7 @@ export default function AdminPage() {
     { key: 'fixationBlank', label: 'Fixation Blank (ms)' },
     { key: 'imageDisplay', label: 'Image Display (ms)' },
     { key: 'memoryTimeout', label: 'Memory Timeout (ms)' },
-    { key: 'postMemoryGap', label: 'Post Memory Gap (ms)' },
+    { key: 'postMemoryGap', label: 'Post Memory Gap (ms) — blank after Old/New, before rating' },
     { key: 'ratingTimeout', label: 'Rating Timeout (ms)' },
     { key: 'interRatingGap', label: 'Inter Rating Gap (ms)' },
     { key: 'pauseDuration', label: 'Pause Duration (ms)' },

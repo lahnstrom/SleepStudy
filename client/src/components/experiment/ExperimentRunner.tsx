@@ -28,6 +28,7 @@ interface ExperimentRunnerProps {
   sessionType: SessionType
   maxTrials?: number // limit trial count for testing (e.g. ?trials=3)
   skipPractice?: boolean // skip practice (e.g. ?skipPractice=1)
+  apiPrefix?: string // prefix for all API calls, e.g. '/pilot' for the public pilot mode
 }
 
 interface State {
@@ -92,7 +93,7 @@ const PRACTICE_ASSIGNMENTS: ImageAssignment[] = Array.from({ length: 6 }, (_, i)
   emotion: 'neutral' as const,
 }))
 
-export default function ExperimentRunner({ participantId, labDay, sessionType, maxTrials, skipPractice }: ExperimentRunnerProps) {
+export default function ExperimentRunner({ participantId, labDay, sessionType, maxTrials, skipPractice, apiPrefix = '' }: ExperimentRunnerProps) {
   const [state, dispatch] = useReducer(reducer, {
     runnerState: 'LOADING_CONFIG',
     timingConfig: null,
@@ -122,16 +123,26 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
     async function init() {
       try {
         // 1. Fetch configs
-        const [timingConfig, timingPracticeConfig, inputConfig] = await Promise.all([
-          api<TimingConfig>('/config/timing'),
-          api<TimingConfig>('/config/timing-practice').catch(() => null),
-          api<InputConfig>('/config/input').catch(() => DEFAULT_INPUT_CONFIG),
-        ])
+        let timingConfig: TimingConfig
+        let timingPracticeConfig: TimingConfig | null
+        let inputConfig: InputConfig
+        if (apiPrefix) {
+          const combined = await api<{ timing: TimingConfig; timingPractice: TimingConfig | null; input: InputConfig | null }>(`${apiPrefix}/config`)
+          timingConfig = combined.timing
+          timingPracticeConfig = combined.timingPractice
+          inputConfig = combined.input ?? DEFAULT_INPUT_CONFIG
+        } else {
+          ;[timingConfig, timingPracticeConfig, inputConfig] = await Promise.all([
+            api<TimingConfig>('/config/timing'),
+            api<TimingConfig>('/config/timing-practice').catch(() => null),
+            api<InputConfig>('/config/input').catch(() => DEFAULT_INPUT_CONFIG),
+          ])
+        }
         dispatch({ type: 'CONFIG_LOADED', timingConfig, timingPracticeConfig, inputConfig })
 
         // 2. Fetch assignments
         const assignments = await api<ImageAssignment[]>(
-          `/participants/${participantId}/assignments?labDay=${labDay}&sessionType=${sessionType}`
+          `${apiPrefix}/participants/${participantId}/assignments?labDay=${labDay}&sessionType=${sessionType}`
         )
         const trimmed = maxTrials ? assignments.slice(0, maxTrials) : assignments
         dispatch({ type: 'ASSIGNMENTS_LOADED', assignments: trimmed })
@@ -144,7 +155,7 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
         const proposedId = crypto.randomUUID()
         let sessionId: string
         try {
-          const session = await api<{ id: string }>('/sessions', {
+          const session = await api<{ id: string }>(`${apiPrefix}/sessions`, {
             method: 'POST',
             body: JSON.stringify({ sessionId: proposedId, participantId, labDay, sessionType }),
           })
@@ -275,12 +286,12 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
         try {
           // Insert trials (409 = already inserted from a previous attempt, which is fine)
           try {
-            await api(`/sessions/${state.sessionId}/trials`, {
+            await api(`${apiPrefix}/sessions/${state.sessionId}/trials`, {
               method: 'POST',
               body: JSON.stringify({ trials: trialPayload }),
             })
           } catch (err) {
-            if (err instanceof ApiError && (err.status === 409 || err.status === 409)) {
+            if (err instanceof ApiError && err.status === 409) {
               // Trials already exist from a previous sync attempt — continue to complete
             } else {
               throw err
@@ -289,7 +300,7 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
 
           // Complete session (409 = already completed, which is fine)
           try {
-            await api(`/sessions/${state.sessionId}/complete`, {
+            await api(`${apiPrefix}/sessions/${state.sessionId}/complete`, {
               method: 'PATCH',
               body: JSON.stringify({ timingMetadata }),
             })
@@ -316,7 +327,7 @@ export default function ExperimentRunner({ participantId, labDay, sessionType, m
 
       // All retries failed — best-effort complete so canLaunch() unblocks next session
       try {
-        await api(`/sessions/${state.sessionId}/complete`, {
+        await api(`${apiPrefix}/sessions/${state.sessionId}/complete`, {
           method: 'PATCH',
           body: JSON.stringify({ timingMetadata }),
         })

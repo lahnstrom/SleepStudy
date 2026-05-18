@@ -438,7 +438,7 @@ a:hover {
 .experiment-bg {
   position: fixed;
   inset: 0;
-  background: #000;
+  background: #1a1a1a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -582,6 +582,7 @@ a:hover {
   text-align: center;
   max-width: 500px;
   line-height: 1.6;
+  cursor: auto !important;
 }
 
 .practice-screen h2 {
